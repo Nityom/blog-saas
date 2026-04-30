@@ -33,9 +33,10 @@ export default function NewClinicPage() {
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleChange = (e: any) => {
-    const { name, value, type, checked } = e.target;
+  
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
     setFormData(prev => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value
@@ -61,11 +62,11 @@ export default function NewClinicPage() {
         slug: baseSlug,
         services,
         doctorNames,
-        tone: formData.tone as any,
+        tone: formData.tone as "professional" | "warm" | "friendly",
         targetAge: formData.targetAge,
         active: formData.active,
         bookingUrl: formData.bookingUrl,
-        integrationMethod: formData.integrationMethod as any,
+        integrationMethod: formData.integrationMethod as "hosted" | "wordpress" | "embed",
         ...(formData.integrationMethod === "wordpress" ? {
           wordpressUrl: formData.wordpressUrl,
           wordpressAppPassword: formData.wordpressAppPassword,
@@ -83,8 +84,8 @@ export default function NewClinicPage() {
 
       toast.success("Clinic created successfully!");
       router.push(`/super-admin/clinics/${clinicId}`);
-    } catch (error: any) {
-      toast.error(error.message || "Failed to create clinic");
+    } catch (error: unknown) {
+      toast.error((error as Error).message || "Failed to create clinic");
     } finally {
       setIsSubmitting(false);
     }
@@ -188,7 +189,7 @@ export default function NewClinicPage() {
 
             {formData.integrationMethod === "embed" && (
               <div className="pt-4 border-t border-neutral-800">
-                <p className="text-sm text-neutral-400">You will be provided an embed script to paste on the client's website.</p>
+                <p className="text-sm text-neutral-400">You will be provided an embed script to paste on the client&apos;s website.</p>
               </div>
             )}
 

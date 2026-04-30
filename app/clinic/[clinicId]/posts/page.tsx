@@ -3,19 +3,20 @@
 import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 import { useParams } from "next/navigation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
 
 export default function ClinicPostsPage() {
   const params = useParams();
   const clinicId = params.clinicId as string;
 
-  const posts = useQuery(api.posts.getByClinic, { clinicId: clinicId as any });
-  const keywords = useQuery(api.keywords.getByClinic, { clinicId: clinicId as any });
+  const posts = useQuery(api.posts.getByClinic, { clinicId: clinicId as Id<"clinics"> });
+  const keywords = useQuery(api.keywords.getByClinic, { clinicId: clinicId as Id<"clinics"> });
 
   const [filter, setFilter] = useState("all");
 

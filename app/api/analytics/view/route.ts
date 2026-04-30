@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 
 export const runtime = 'edge';
 
@@ -13,11 +14,11 @@ const rateLimitMap = new Map<string, number>();
 
 function cleanupRateLimits() {
   const oneHourAgo = Date.now() - 3600 * 1000;
-  for (const [key, timestamp] of rateLimitMap.entries()) {
+  rateLimitMap.forEach((timestamp, key) => {
     if (timestamp < oneHourAgo) {
       rateLimitMap.delete(key);
     }
-  }
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -48,8 +49,8 @@ export async function POST(request: NextRequest) {
     rateLimitMap.set(rateKey, now);
 
     await convex.mutation(api.analytics.recordView, {
-      clinicId: clinicId as any,
-      postId: postId as any,
+      clinicId: clinicId as Id<"clinics">,
+      postId: postId as Id<"posts">,
     });
 
     return NextResponse.json(

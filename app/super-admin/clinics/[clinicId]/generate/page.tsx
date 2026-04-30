@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useAction, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useParams, useRouter } from "next/navigation";
+import { Id } from "@/convex/_generated/dataModel";
+import { useParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -12,10 +13,9 @@ import { ArrowLeft, CheckCircle2, Circle, Loader2 } from "lucide-react";
 
 export default function GeneratePostPage() {
   const params = useParams();
-  const router = useRouter();
   const clinicId = params.clinicId as string;
 
-  const clinic = useQuery(api.clinics.getById, { clinicId: clinicId as any });
+  const clinic = useQuery(api.clinics.getById, { clinicId: clinicId as Id<"clinics"> });
   const generateAction = useAction(api.generation.generatePost);
 
   const [status, setStatus] = useState<"idle" | "generating" | "success" | "error">("idle");
@@ -37,10 +37,10 @@ export default function GeneratePostPage() {
       await generateAction({ clinicId: clinic._id });
       setStatus("success");
       toast.success("Post generation complete!");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
       setStatus("error");
-      setErrorMessage(error.message || "Failed to generate post.");
+      setErrorMessage((error as Error).message || "Failed to generate post.");
       toast.error("Generation failed");
     }
   };

@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 import { useParams, useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,9 +21,9 @@ export default function ClinicDetailsPage() {
   const router = useRouter();
   const clinicId = params.clinicId as string;
 
-  const clinic = useQuery(api.clinics.getById, { clinicId: clinicId as any });
-  const posts = useQuery(api.posts.getByClinic, { clinicId: clinicId as any });
-  const keywords = useQuery(api.keywords.getByClinic, { clinicId: clinicId as any });
+  const clinic = useQuery(api.clinics.getById, { clinicId: clinicId as Id<"clinics"> });
+  const posts = useQuery(api.posts.getByClinic, { clinicId: clinicId as Id<"clinics"> });
+  const keywords = useQuery(api.keywords.getByClinic, { clinicId: clinicId as Id<"clinics"> });
   const removeClinic = useMutation(api.clinics.remove);
   const updateClinic = useMutation(api.clinics.update);
 
@@ -60,8 +61,8 @@ export default function ClinicDetailsPage() {
       });
       toast.success("Domain updated!");
       setIsEditing(false);
-    } catch (e: any) {
-      toast.error(e.message || "Failed to update domain");
+    } catch (e: unknown) {
+      toast.error((e as Error).message || "Failed to update domain");
     } finally {
       setIsSaving(false);
     }
@@ -144,11 +145,9 @@ export default function ClinicDetailsPage() {
               <CardTitle>Configuration</CardTitle>
               {clinic.integrationMethod === "hosted" && (
                 <Dialog open={isEditing} onOpenChange={setIsEditing}>
-                  <DialogTrigger asChild>
-                    <Button variant="ghost" size="sm" className="text-neutral-400 hover:text-white hover:bg-neutral-800">
-                      <Edit className="w-4 h-4 mr-2" />
-                      Edit Domain
-                    </Button>
+                  <DialogTrigger render={<Button variant="ghost" size="sm" className="text-neutral-400 hover:text-white hover:bg-neutral-800" />}>
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit Domain
                   </DialogTrigger>
                   <DialogContent className="bg-neutral-900 border-neutral-800 text-white">
                     <DialogHeader>
@@ -189,8 +188,8 @@ export default function ClinicDetailsPage() {
                   <div className="col-span-2 mt-4 p-4 bg-neutral-950 rounded-md border border-neutral-800">
                     <span className="text-neutral-500 block mb-2">Embed Script</span>
                     <code className="text-xs text-green-400 break-all">
-                      &lt;script src="YOUR_DOMAIN/api/embed/{clinic._id}.js"&gt;&lt;/script&gt;<br/>
-                      &lt;div id="dental-blog"&gt;&lt;/div&gt;
+                      &lt;script src=&quot;YOUR_DOMAIN/api/embed/{clinic._id}.js&quot;&gt;&lt;/script&gt;<br/>
+                      &lt;div id=&quot;dental-blog&quot;&gt;&lt;/div&gt;
                     </code>
                   </div>
                 )}

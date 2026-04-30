@@ -12,7 +12,7 @@ export interface SeoPost {
 }
 
 export function generateSlug(title: string, existingSlugs: string[]): string {
-  let baseSlug = title
+  const baseSlug = title
     .toLowerCase()
     .replace(/[^a-z0-9\s-]/g, '') // remove invalid chars
     .replace(/\s+/g, '-')         // replace spaces with dashes

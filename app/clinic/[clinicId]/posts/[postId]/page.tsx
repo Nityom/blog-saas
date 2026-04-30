@@ -1,15 +1,16 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 import { useParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { toast } from "sonner";
 import Link from "next/link";
 import { ArrowLeft, Save, Globe, Trash2, AlertTriangle, CheckCircle2 } from "lucide-react";
@@ -23,8 +24,8 @@ export default function EditPostPage() {
   const clinicId = params.clinicId as string;
   const postId = params.postId as string;
 
-  const post = useQuery(api.posts.getById, { postId: postId as any });
-  const clinic = useQuery(api.clinics.getById, { clinicId: clinicId as any });
+  const post = useQuery(api.posts.getById, { postId: postId as Id<"posts"> });
+  const clinic = useQuery(api.clinics.getById, { clinicId: clinicId as Id<"clinics"> });
   const updatePost = useMutation(api.posts.update);
   const deletePost = useMutation(api.posts.remove);
   const publishPost = useAction(api.integrations.publishPost);
@@ -63,7 +64,7 @@ export default function EditPostPage() {
   let safetyReport = { safe: true, riskLevel: "low", flags: [], suggestedEdits: [] };
   try {
     if (post.safetyReport) safetyReport = JSON.parse(post.safetyReport);
-  } catch (e) {
+  } catch {
     // Ignore parse errors
   }
 
@@ -76,8 +77,8 @@ export default function EditPostPage() {
         ...(statusOverride ? { status: statusOverride } : {})
       });
       toast.success("Post saved!");
-    } catch (e: any) {
-      toast.error(e.message || "Failed to save post");
+    } catch (e: unknown) {
+      toast.error((e as Error).message || "Failed to save post");
     } finally {
       setIsSaving(false);
     }
@@ -94,8 +95,8 @@ export default function EditPostPage() {
       await updatePost({ postId: post._id, ...formData }); // Save current state
       await publishPost({ postId: post._id });
       toast.success("Post published successfully!");
-    } catch (e: any) {
-      toast.error(e.message || "Failed to publish post");
+    } catch (e: unknown) {
+      toast.error((e as Error).message || "Failed to publish post");
     } finally {
       setIsPublishing(false);
     }

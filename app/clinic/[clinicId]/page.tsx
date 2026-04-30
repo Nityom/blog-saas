@@ -2,6 +2,7 @@
 
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 import { useParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +13,8 @@ export default function ClinicDashboard() {
   const params = useParams();
   const clinicId = params.clinicId as string;
 
-  const posts = useQuery(api.posts.getByClinic, { clinicId: clinicId as any });
+
+  const posts = useQuery(api.posts.getByClinic, { clinicId: clinicId as Id<"clinics"> });
 
   if (posts === undefined) {
     return <div className="p-8 text-neutral-400">Loading dashboard...</div>;

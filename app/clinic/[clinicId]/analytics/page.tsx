@@ -2,6 +2,7 @@
 
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 import { useParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart3, TrendingUp, Eye } from "lucide-react";
@@ -11,9 +12,9 @@ export default function ClinicAnalyticsPage() {
   const params = useParams();
   const clinicId = params.clinicId as string;
 
-  const topPosts = useQuery(api.analytics.getTopPerformingPosts, { clinicId: clinicId as any });
-  const keywords = useQuery(api.keywords.getByClinic, { clinicId: clinicId as any });
-  const allPosts = useQuery(api.posts.getPublishedByClinic, { clinicId: clinicId as any });
+  const topPosts = useQuery(api.analytics.getTopPerformingPosts, { clinicId: clinicId as Id<"clinics"> });
+  const keywords = useQuery(api.keywords.getByClinic, { clinicId: clinicId as Id<"clinics"> });
+  const allPosts = useQuery(api.posts.getPublishedByClinic, { clinicId: clinicId as Id<"clinics"> });
 
   if (topPosts === undefined || keywords === undefined || allPosts === undefined) {
     return <div className="p-8 text-neutral-400">Loading analytics...</div>;

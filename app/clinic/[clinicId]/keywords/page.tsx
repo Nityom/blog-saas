@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 import { useParams } from "next/navigation";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -17,8 +18,8 @@ export default function ClinicKeywordsPage() {
   const params = useParams();
   const clinicId = params.clinicId as string;
 
-  const clinic = useQuery(api.clinics.getById, { clinicId: clinicId as any });
-  const keywords = useQuery(api.keywords.getByClinic, { clinicId: clinicId as any });
+  const clinic = useQuery(api.clinics.getById, { clinicId: clinicId as Id<"clinics"> });
+  const keywords = useQuery(api.keywords.getByClinic, { clinicId: clinicId as Id<"clinics"> });
   
   const addKeyword = useMutation(api.keywords.add);
   const updateKeyword = useMutation(api.keywords.update);
@@ -44,7 +45,7 @@ export default function ClinicKeywordsPage() {
     e.preventDefault();
     try {
       await addKeyword({
-        clinicId: clinicId as any,
+        clinicId: clinicId as Id<"clinics">,
         term,
         localVariant,
         lowRisk,
@@ -53,16 +54,16 @@ export default function ClinicKeywordsPage() {
       setTerm("");
       setLocalVariant("");
       setLowRisk(false);
-    } catch (e: any) {
-      toast.error(e.message || "Failed to add keyword");
+    } catch (e: unknown) {
+      toast.error((e as Error).message || "Failed to add keyword");
     }
   };
 
-  const togglePause = async (kw: any) => {
+  const togglePause = async (kw: { _id: Id<"keywords">; paused: boolean }) => {
     await updateKeyword({ keywordId: kw._id, paused: !kw.paused });
   };
 
-  const handleDelete = async (kw: any) => {
+  const handleDelete = async (kw: { _id: Id<"keywords">; term: string }) => {
     if (confirm(`Delete keyword "${kw.term}"?`)) {
       await deleteKeyword({ keywordId: kw._id });
     }

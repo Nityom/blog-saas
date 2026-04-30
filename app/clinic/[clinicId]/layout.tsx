@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useParams } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
+import { Id } from "@/convex/_generated/dataModel";
 import { ReactNode } from "react";
 import { LayoutDashboard, FileText, Key, BarChart3, Building2 } from "lucide-react";
 import { useQuery } from "convex/react";
@@ -12,7 +13,7 @@ export default function ClinicAdminLayout({ children }: { children: ReactNode })
   const params = useParams();
   const clinicId = params.clinicId as string;
 
-  const clinic = useQuery(api.clinics.getById, { clinicId: clinicId as any });
+  const clinic = useQuery(api.clinics.getById, { clinicId: clinicId as Id<"clinics"> });
 
   const navItems = [
     { name: "Overview", href: `/clinic/${clinicId}`, icon: LayoutDashboard },
