@@ -1,0 +1,93 @@
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+export default defineSchema({
+  clinics: defineTable({
+    name: v.string(),
+    city: v.string(),
+    slug: v.string(),
+    services: v.array(v.string()),
+    doctorNames: v.array(v.string()),
+    tone: v.union(v.literal("professional"), v.literal("warm"), v.literal("friendly")),
+    targetAge: v.string(),
+    bookingUrl: v.string(),
+    active: v.boolean(),
+    integrationMethod: v.union(v.literal("hosted"), v.literal("wordpress"), v.literal("embed")),
+    wordpressUrl: v.optional(v.string()),
+    wordpressAppPasswordEncrypted: v.optional(v.string()),
+    customDomain: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_domain", ["customDomain"]),
+
+  keywords: defineTable({
+    clinicId: v.id("clinics"),
+    term: v.string(),
+    localVariant: v.string(),
+    lastUsed: v.optional(v.number()),
+    timesUsed: v.number(),
+    performanceScore: v.number(),
+    lowRisk: v.boolean(),
+    paused: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index("by_clinic", ["clinicId"])
+    .index("by_clinic_and_performance", ["clinicId", "performanceScore"]),
+
+  posts: defineTable({
+    clinicId: v.id("clinics"),
+    keywordId: v.id("keywords"),
+    title: v.string(),
+    slug: v.string(),
+    excerpt: v.string(),
+    content: v.string(),
+    metaTitle: v.string(),
+    metaDesc: v.string(),
+    imageUrl: v.string(),
+    imageCredit: v.string(),
+    imageCreditUrl: v.string(),
+    safetyReport: v.string(), // JSON string
+    status: v.union(
+      v.literal("generating"),
+      v.literal("draft"),
+      v.literal("published"),
+      v.literal("flagged")
+    ),
+    readingTime: v.number(),
+    schemaMarkup: v.string(),
+    wordpressPostId: v.optional(v.number()),
+    publishedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_clinic", ["clinicId"])
+    .index("by_clinic_and_slug", ["clinicId", "slug"])
+    .index("by_clinic_and_status", ["clinicId", "status"]),
+
+  analytics: defineTable({
+    clinicId: v.id("clinics"),
+    postId: v.id("posts"),
+    keywordId: v.id("keywords"),
+    views: v.number(),
+    avgTimeOnPage: v.number(),
+    recordedAt: v.number(),
+  }).index("by_post", ["postId"]).index("by_clinic", ["clinicId"]).index("by_keyword", ["keywordId"]),
+
+  generationLogs: defineTable({
+    clinicId: v.id("clinics"),
+    keywordUsed: v.string(),
+    status: v.union(v.literal("success"), v.literal("failed"), v.literal("flagged")),
+    passesCompleted: v.number(),
+    errorMessage: v.optional(v.string()),
+    runAt: v.number(),
+  }).index("by_clinic", ["clinicId"]),
+
+  integrationLogs: defineTable({
+    clinicId: v.id("clinics"),
+    postId: v.id("posts"),
+    method: v.union(v.literal("wordpress"), v.literal("embed"), v.literal("hosted")),
+    status: v.union(v.literal("success"), v.literal("failed")),
+    response: v.optional(v.string()),
+    runAt: v.number(),
+  }).index("by_clinic", ["clinicId"]).index("by_post", ["postId"]),
+});

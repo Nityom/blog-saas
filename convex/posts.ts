@@ -1,0 +1,71 @@
+import { mutation, query } from "./_generated/server";
+import { v } from "convex/values";
+
+export const getByClinic = query({
+  args: { clinicId: v.id("clinics") },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("posts")
+      .withIndex("by_clinic", (q) => q.eq("clinicId", args.clinicId))
+      .collect();
+  },
+});
+
+export const getPublishedByClinic = query({
+  args: { clinicId: v.id("clinics") },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("posts")
+      .withIndex("by_clinic_and_status", (q) =>
+        q.eq("clinicId", args.clinicId).eq("status", "published")
+      )
+      .collect();
+  },
+});
+
+export const getBySlug = query({
+  args: { clinicId: v.id("clinics"), slug: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("posts")
+      .withIndex("by_clinic_and_slug", (q) =>
+        q.eq("clinicId", args.clinicId).eq("slug", args.slug)
+      )
+      .first();
+  },
+});
+
+export const getById = query({
+  args: { postId: v.id("posts") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.postId);
+  },
+});
+
+export const update = mutation({
+  args: {
+    postId: v.id("posts"),
+    title: v.optional(v.string()),
+    slug: v.optional(v.string()),
+    excerpt: v.optional(v.string()),
+    content: v.optional(v.string()),
+    metaTitle: v.optional(v.string()),
+    metaDesc: v.optional(v.string()),
+    status: v.optional(
+      v.union(v.literal("generating"), v.literal("draft"), v.literal("published"), v.literal("flagged"))
+    ),
+    wordpressPostId: v.optional(v.number()),
+    publishedAt: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const { postId, ...updates } = args;
+    await ctx.db.patch(postId, updates);
+  },
+});
+
+export const remove = mutation({
+  args: { postId: v.id("posts") },
+  handler: async (ctx, args) => {
+    await ctx.db.delete(args.postId);
+  },
+});
