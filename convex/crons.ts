@@ -5,7 +5,7 @@ const crons = cronJobs();
 
 crons.cron(
   "daily-generation",
-  "30 6 * * 1-5", // Monday to Friday at 06:30 UTC (12:00 PM IST)
+  "20 6 * * 1-5", // Monday to Friday at 06:20 UTC (11:50 AM IST)
   internal.generation.runAll
 );
 
