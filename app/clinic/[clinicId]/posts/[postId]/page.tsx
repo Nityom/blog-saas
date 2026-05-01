@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import Link from "next/link";
-import { ArrowLeft, Save, Globe, Trash2, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Save, Globe, Trash2, AlertTriangle, CheckCircle2, Upload } from "lucide-react";
 import dynamic from 'next/dynamic';
 
 const MDEditor = dynamic(() => import('@uiw/react-md-editor'), { ssr: false });
@@ -29,6 +29,7 @@ export default function EditPostPage() {
   const updatePost = useMutation(api.posts.update);
   const deletePost = useMutation(api.posts.remove);
   const publishPost = useAction(api.integrations.publishPost);
+  const generateUploadUrl = useMutation(api.posts.generateUploadUrl);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -36,10 +37,14 @@ export default function EditPostPage() {
     metaDesc: "",
     excerpt: "",
     content: "",
+    imageUrl: "",
+    imageCredit: "",
+    imageCreditUrl: "",
   });
   
   const [isSaving, setIsSaving] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     if (post) {
@@ -49,6 +54,9 @@ export default function EditPostPage() {
         metaDesc: post.metaDesc,
         excerpt: post.excerpt,
         content: post.content,
+        imageUrl: post.imageUrl || "",
+        imageCredit: post.imageCredit || "",
+        imageCreditUrl: post.imageCreditUrl || "",
       });
     }
   }, [post]);
@@ -67,6 +75,33 @@ export default function EditPostPage() {
   } catch {
     // Ignore parse errors
   }
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const postUrl = await generateUploadUrl();
+      const result = await fetch(postUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      const { storageId } = await result.json();
+      
+      await updatePost({
+        postId: post._id,
+        storageId,
+      });
+      
+      toast.success("Image uploaded successfully!");
+    } catch (error) {
+      toast.error("Failed to upload image");
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const handleSave = async (statusOverride?: "draft" | "published") => {
     setIsSaving(true);
@@ -163,19 +198,19 @@ export default function EditPostPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <Card className="bg-white border-neutral-200">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+        <div className="lg:col-span-2 flex flex-col">
+          <Card className="bg-white border-neutral-200 flex-1 flex flex-col min-h-[600px]">
             <CardHeader>
               <CardTitle>Content</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div data-color-mode="light">
+            <CardContent className="flex-1 flex flex-col min-h-0 pb-6">
+              <div data-color-mode="light" className="flex-1 h-full">
                 <MDEditor
                   value={formData.content}
                   onChange={(val) => setFormData({...formData, content: val || ""})}
-                  height={600}
-                  className="w-full"
+                  height="100%"
+                  className="w-full h-full min-h-[500px] !border-0"
                 />
               </div>
             </CardContent>
@@ -251,13 +286,47 @@ export default function EditPostPage() {
           </Card>
 
           <Card className="bg-white border-neutral-200">
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle>Featured Image</CardTitle>
+              <div>
+                <input
+                  type="file"
+                  id="imageUpload"
+                  className="hidden"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  disabled={isUploading}
+                />
+                <Button variant="outline" size="sm" asChild disabled={isUploading}>
+                  <label htmlFor="imageUpload" className="cursor-pointer">
+                    <Upload className="w-4 h-4 mr-2" />
+                    {isUploading ? "Uploading..." : "Upload Image"}
+                  </label>
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
-               <img src={post.imageUrl} alt="Featured" className="w-full h-48 object-cover rounded-md" />
-               <p className="text-xs text-center text-neutral-500">
-                 Photo by <a href={post.imageCreditUrl} target="_blank" className="text-blue-500 hover:underline">{post.imageCredit}</a> on Pexels
+              {formData.imageUrl ? (
+                <img src={formData.imageUrl} alt="Featured" className="w-full h-48 object-cover rounded-md border border-neutral-200" />
+              ) : (
+                <div className="w-full h-48 bg-neutral-100 border border-neutral-200 rounded-md flex items-center justify-center text-neutral-400">No Image</div>
+              )}
+               <div className="space-y-2 mt-4">
+                 <Label htmlFor="imageUrl">Image URL</Label>
+                 <Input id="imageUrl" value={formData.imageUrl} onChange={(e) => setFormData({...formData, imageUrl: e.target.value})} placeholder="https://images.pexels.com/..." />
+               </div>
+               <div className="grid grid-cols-2 gap-4">
+                 <div className="space-y-2">
+                   <Label htmlFor="imageCredit">Credit Name</Label>
+                   <Input id="imageCredit" value={formData.imageCredit} onChange={(e) => setFormData({...formData, imageCredit: e.target.value})} placeholder="Photographer Name" />
+                 </div>
+                 <div className="space-y-2">
+                   <Label htmlFor="imageCreditUrl">Credit URL</Label>
+                   <Input id="imageCreditUrl" value={formData.imageCreditUrl} onChange={(e) => setFormData({...formData, imageCreditUrl: e.target.value})} placeholder="https://ununsplash.com/..." />
+                 </div>
+               </div>
+               <p className="text-xs text-center text-neutral-500 mt-2">
+                 Photo by <a href={formData.imageCreditUrl} target="_blank" className="text-blue-500 hover:underline">{formData.imageCredit || "Unknown"}</a>
                </p>
             </CardContent>
           </Card>

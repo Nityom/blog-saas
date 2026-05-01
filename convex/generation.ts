@@ -53,7 +53,7 @@ export const finalizeGeneration = internalMutation({
     postId: v.id("posts"),
     keywordId: v.id("keywords"),
     postData: v.any(),
-    status: v.union(v.literal("draft"), v.literal("flagged")),
+    status: v.union(v.literal("draft"), v.literal("published"), v.literal("flagged")),
     logData: v.any(),
   },
   handler: async (ctx, args) => {
@@ -100,7 +100,7 @@ export const finalizeGeneration = internalMutation({
     const linkedContent = addInternalLinks(args.postData.content, relatedLinks);
 
     // 6. Update post record
-    await ctx.db.patch(args.postId, {
+    const updateData: any = {
       title: args.postData.title,
       slug: finalSlug,
       excerpt: args.postData.excerpt,
@@ -114,7 +114,13 @@ export const finalizeGeneration = internalMutation({
       status: args.status,
       readingTime: args.postData.readingTime,
       schemaMarkup: schemaMarkup,
-    });
+    };
+    
+    if (args.status === "published") {
+      updateData.publishedAt = Date.now();
+    }
+
+    await ctx.db.patch(args.postId, updateData);
 
     // 7. Update keyword
     await ctx.db.patch(args.keywordId, {
@@ -214,7 +220,7 @@ Then write the post:
       const readingTime = Math.ceil(getWordCount(content) / 200);
 
       let passesCompleted = 1;
-      let finalStatus: "draft" | "flagged" = "draft";
+      let finalStatus: "published" | "flagged" = "published";
       let safetyReportJson = "{}";
 
       // Parallel tasks: Pexels and Pass 2 (if not lowRisk)

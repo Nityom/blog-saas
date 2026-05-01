@@ -78,26 +78,26 @@ export default function ClinicKeywordsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-1">
-          <Card className="bg-white border-neutral-200">
+          <Card className="bg-white border-neutral-200 shadow-sm">
             <CardHeader>
-              <CardTitle>Add Keyword</CardTitle>
+              <CardTitle className="text-lg">Add Keyword</CardTitle>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleAdd} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="term">Term</Label>
-                  <Input id="term" value={term} onChange={handleTermChange} required placeholder="e.g. root canal" />
+                  <Label htmlFor="term" className="text-neutral-700">Term</Label>
+                  <Input id="term" value={term} onChange={handleTermChange} required placeholder="e.g. root canal" className="shadow-sm" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="localVariant">Local Variant</Label>
-                  <Input id="localVariant" value={localVariant} onChange={(e) => setLocalVariant(e.target.value)} required />
+                  <Label htmlFor="localVariant" className="text-neutral-700">Local Variant</Label>
+                  <Input id="localVariant" value={localVariant} onChange={(e) => setLocalVariant(e.target.value)} required className="shadow-sm" />
                 </div>
                 <div className="flex items-center gap-2 pt-2">
-                  <input type="checkbox" id="lowRisk" checked={lowRisk} onChange={(e) => setLowRisk(e.target.checked)} className="rounded border-neutral-300" />
-                  <Label htmlFor="lowRisk" className="cursor-pointer text-sm">Low Risk (skips safety check)</Label>
+                  <input type="checkbox" id="lowRisk" checked={lowRisk} onChange={(e) => setLowRisk(e.target.checked)} className="rounded border-neutral-300 text-blue-600 focus:ring-blue-500" />
+                  <Label htmlFor="lowRisk" className="cursor-pointer text-sm text-neutral-700 font-medium">Low Risk (skips safety check)</Label>
                 </div>
-                <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white mt-4">
-                  <Plus className="w-4 h-4 mr-2" /> Add
+                <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white mt-4 shadow-sm">
+                  <Plus className="w-4 h-4 mr-2" /> Add Keyword
                 </Button>
               </form>
             </CardContent>
@@ -105,7 +105,7 @@ export default function ClinicKeywordsPage() {
         </div>
 
         <div className="lg:col-span-3">
-          <div className="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+          <div className="bg-white border border-neutral-200 rounded-lg overflow-hidden shadow-sm">
             <Table>
               <TableHeader>
                 <TableRow className="bg-neutral-50 hover:bg-neutral-50">

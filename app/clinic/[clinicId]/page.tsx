@@ -34,7 +34,7 @@ export default function ClinicDashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="bg-white border-neutral-200">
+        <Card className="bg-white border-neutral-200 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-neutral-500">Published</CardTitle>
           </CardHeader>
@@ -42,7 +42,7 @@ export default function ClinicDashboard() {
             <div className="text-3xl font-bold text-green-600">{published}</div>
           </CardContent>
         </Card>
-        <Card className="bg-white border-neutral-200">
+        <Card className="bg-white border-neutral-200 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-neutral-500">Drafts</CardTitle>
           </CardHeader>
@@ -50,7 +50,7 @@ export default function ClinicDashboard() {
             <div className="text-3xl font-bold text-neutral-700">{drafts}</div>
           </CardContent>
         </Card>
-        <Card className="bg-white border-neutral-200">
+        <Card className="bg-white border-neutral-200 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-neutral-500">Action Required</CardTitle>
           </CardHeader>
@@ -58,7 +58,7 @@ export default function ClinicDashboard() {
             <div className="text-3xl font-bold text-red-500">{flagged}</div>
           </CardContent>
         </Card>
-        <Card className="bg-white border-neutral-200">
+        <Card className="bg-white border-neutral-200 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-neutral-500">This Month</CardTitle>
           </CardHeader>
@@ -75,11 +75,11 @@ export default function ClinicDashboard() {
           <div className="flex items-center justify-between">
             <h3 className="text-xl font-semibold">Recent Posts</h3>
             <Link href={`/clinic/${clinicId}/posts`}>
-              <Button variant="outline" size="sm">View All</Button>
+              <Button variant="outline" size="sm" className="shadow-sm">View All</Button>
             </Link>
           </div>
           
-          <div className="bg-white border border-neutral-200 rounded-lg overflow-hidden divide-y divide-neutral-100">
+          <div className="bg-white border border-neutral-200 rounded-lg overflow-hidden divide-y divide-neutral-100 shadow-sm">
             {recentPosts.length === 0 && <div className="p-6 text-center text-neutral-500">No posts yet.</div>}
             {recentPosts.map((post) => (
               <div key={post._id} className="p-4 flex items-center justify-between hover:bg-neutral-50 transition-colors">
@@ -90,9 +90,9 @@ export default function ClinicDashboard() {
                   <div className="text-xs text-neutral-500 mt-1">{new Date(post.createdAt).toLocaleDateString()}</div>
                 </div>
                 <Badge variant="outline" className={
-                  post.status === "published" ? "text-green-600 border-green-200 bg-green-50" : 
-                  post.status === "flagged" ? "text-red-600 border-red-200 bg-red-50" : 
-                  "text-neutral-600 border-neutral-200 bg-neutral-100"
+                  post.status === "published" ? "text-green-700 border-green-200 bg-green-50" : 
+                  post.status === "flagged" ? "text-red-700 border-red-200 bg-red-50" : 
+                  "text-neutral-700 border-neutral-200 bg-neutral-50"
                 }>
                   {post.status}
                 </Badge>
@@ -103,7 +103,7 @@ export default function ClinicDashboard() {
 
         <div className="space-y-4">
            <h3 className="text-xl font-semibold">System Status</h3>
-           <Card className="bg-blue-50 border-blue-100">
+           <Card className="bg-blue-50/50 border-blue-100 shadow-sm">
              <CardContent className="p-6">
                 <p className="text-sm text-blue-800 mb-4">
                   AI blog generation runs automatically every weekday.

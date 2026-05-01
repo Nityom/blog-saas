@@ -51,6 +51,10 @@ export const update = mutation({
     content: v.optional(v.string()),
     metaTitle: v.optional(v.string()),
     metaDesc: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
+    storageId: v.optional(v.id("_storage")),
+    imageCredit: v.optional(v.string()),
+    imageCreditUrl: v.optional(v.string()),
     status: v.optional(
       v.union(v.literal("generating"), v.literal("draft"), v.literal("published"), v.literal("flagged"))
     ),
@@ -58,9 +62,23 @@ export const update = mutation({
     publishedAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const { postId, ...updates } = args;
-    await ctx.db.patch(postId, updates);
+    const { postId, storageId, ...updates } = args;
+    
+    let resolvedImageUrl = updates.imageUrl;
+    if (storageId) {
+      const url = await ctx.storage.getUrl(storageId);
+      if (url) resolvedImageUrl = url;
+    }
+    
+    await ctx.db.patch(postId, {
+      ...updates,
+      ...(resolvedImageUrl ? { imageUrl: resolvedImageUrl } : {})
+    });
   },
+});
+
+export const generateUploadUrl = mutation(async (ctx) => {
+  return await ctx.storage.generateUploadUrl();
 });
 
 export const remove = mutation({

@@ -39,14 +39,14 @@ export default function ClinicPostsPage() {
       </div>
 
       <Tabs defaultValue="all" value={filter} onValueChange={setFilter} className="w-full">
-        <TabsList className="mb-4">
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="draft">Drafts</TabsTrigger>
-          <TabsTrigger value="published">Published</TabsTrigger>
-          <TabsTrigger value="flagged">Flagged</TabsTrigger>
+        <TabsList className="mb-4 bg-neutral-100/50 border border-neutral-200 p-1">
+          <TabsTrigger value="all" className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-sm text-neutral-600 data-[state=active]:text-neutral-900">All</TabsTrigger>
+          <TabsTrigger value="draft" className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-sm text-neutral-600 data-[state=active]:text-neutral-900">Drafts</TabsTrigger>
+          <TabsTrigger value="published" className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-sm text-neutral-600 data-[state=active]:text-neutral-900">Published</TabsTrigger>
+          <TabsTrigger value="flagged" className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-sm text-neutral-600 data-[state=active]:text-neutral-900">Flagged</TabsTrigger>
         </TabsList>
 
-        <div className="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+        <div className="bg-white border border-neutral-200 rounded-lg overflow-hidden shadow-sm">
           <Table>
             <TableHeader>
               <TableRow className="bg-neutral-50 hover:bg-neutral-50">

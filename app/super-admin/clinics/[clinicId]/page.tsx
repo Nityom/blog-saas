@@ -26,6 +26,7 @@ export default function ClinicDetailsPage() {
   const keywords = useQuery(api.keywords.getByClinic, { clinicId: clinicId as Id<"clinics"> });
   const removeClinic = useMutation(api.clinics.remove);
   const updateClinic = useMutation(api.clinics.update);
+  const deletePost = useMutation(api.posts.remove);
 
   const [isEditing, setIsEditing] = useState(false);
   const [customDomain, setCustomDomain] = useState("");
@@ -52,6 +53,13 @@ export default function ClinicDetailsPage() {
     }
   };
 
+  const handleDeletePost = async (postId: Id<"posts">) => {
+    if (confirm("Are you sure you want to delete this post? This cannot be undone.")) {
+      await deletePost({ postId });
+      toast.success("Post deleted");
+    }
+  };
+
   const handleSaveDomain = async () => {
     setIsSaving(true);
     try {
@@ -73,99 +81,99 @@ export default function ClinicDetailsPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link href="/super-admin">
-            <Button variant="ghost" size="icon" className="text-neutral-400 hover:text-white hover:bg-neutral-800">
+            <Button variant="ghost" size="icon" className="text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100">
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
           <div>
-            <h2 className="text-2xl font-bold text-white tracking-tight flex items-center gap-3">
+            <h2 className="text-2xl font-bold text-neutral-900 tracking-tight flex items-center gap-3">
               {clinic.name}
               {clinic.active ? (
-                <Badge className="bg-green-500/10 text-green-400">Active</Badge>
+                <Badge className="bg-green-100 text-green-700 hover:bg-green-200 border-green-200">Active</Badge>
               ) : (
-                <Badge className="bg-neutral-500/10 text-neutral-400">Paused</Badge>
+                <Badge className="bg-neutral-100 text-neutral-600 hover:bg-neutral-200 border-neutral-200">Paused</Badge>
               )}
             </h2>
-            <p className="text-neutral-400">{clinic.city} • {clinic.integrationMethod} integration</p>
+            <p className="text-neutral-500">{clinic.city} • {clinic.integrationMethod} integration</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <Link href={`/super-admin/clinics/${clinic._id}/generate`}>
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
+            <Button className="bg-blue-600 hover:bg-blue-700 text-white gap-2 shadow-sm">
               <PlayCircle className="w-4 h-4" />
               Generate Post
             </Button>
           </Link>
           <Link href={`/clinic/${clinic._id}`} target="_blank">
-            <Button variant="outline" className="border-neutral-700 text-neutral-300 hover:text-white hover:bg-neutral-800">
+            <Button variant="outline" className="border-neutral-200 text-neutral-700 hover:text-neutral-900 hover:bg-neutral-50 shadow-sm">
               Tenant Portal
             </Button>
           </Link>
         </div>
       </div>
 
-      <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="bg-neutral-900 border border-neutral-800 text-neutral-400">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-neutral-800 data-[state=active]:text-white">Overview</TabsTrigger>
-          <TabsTrigger value="posts" className="data-[state=active]:bg-neutral-800 data-[state=active]:text-white">Posts ({posts.length})</TabsTrigger>
-          <TabsTrigger value="keywords" className="data-[state=active]:bg-neutral-800 data-[state=active]:text-white">Keywords ({keywords.length})</TabsTrigger>
-          <TabsTrigger value="danger" className="data-[state=active]:bg-red-900/20 data-[state=active]:text-red-400">Danger Zone</TabsTrigger>
+      <Tabs defaultValue="overview" orientation="vertical" className="w-full flex md:flex-row flex-col gap-6">
+        <TabsList className="flex flex-col bg-white border border-neutral-200 text-neutral-600 p-2 shadow-sm rounded-lg w-full md:w-48 xl:w-56 shrink-0 h-fit items-stretch justify-start">
+          <TabsTrigger value="overview" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-none rounded-md px-3 py-2 text-sm justify-start">Overview</TabsTrigger>
+          <TabsTrigger value="posts" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-none rounded-md px-3 py-2 text-sm justify-start">Posts ({posts.length})</TabsTrigger>
+          <TabsTrigger value="keywords" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 data-[state=active]:shadow-none rounded-md px-3 py-2 text-sm justify-start">Keywords ({keywords.length})</TabsTrigger>
+          <TabsTrigger value="danger" className="data-[state=active]:bg-red-50 data-[state=active]:text-red-700 data-[state=active]:shadow-none rounded-md px-3 py-2 text-sm justify-start">Danger Zone</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="overview" className="space-y-6 pt-4">
+        <TabsContent value="overview" className="space-y-6 flex-1 min-w-0">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="bg-neutral-900 border-neutral-800 text-white">
+            <Card className="bg-white border-neutral-200 shadow-sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-neutral-400">Published Posts</CardTitle>
+                <CardTitle className="text-sm font-medium text-neutral-500">Published Posts</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">{posts.filter(p => p.status === "published").length}</div>
+                <div className="text-3xl font-bold text-neutral-900">{posts.filter(p => p.status === "published").length}</div>
               </CardContent>
             </Card>
-            <Card className="bg-neutral-900 border-neutral-800 text-white">
+            <Card className="bg-white border-neutral-200 shadow-sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-neutral-400">Drafts & Flagged</CardTitle>
+                <CardTitle className="text-sm font-medium text-neutral-500">Drafts & Flagged</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">{posts.filter(p => p.status === "draft" || p.status === "flagged").length}</div>
+                <div className="text-3xl font-bold text-neutral-900">{posts.filter(p => p.status === "draft" || p.status === "flagged").length}</div>
               </CardContent>
             </Card>
-            <Card className="bg-neutral-900 border-neutral-800 text-white">
+            <Card className="bg-white border-neutral-200 shadow-sm">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-neutral-400">Active Keywords</CardTitle>
+                <CardTitle className="text-sm font-medium text-neutral-500">Active Keywords</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">{keywords.filter(k => !k.paused).length}</div>
+                <div className="text-3xl font-bold text-neutral-900">{keywords.filter(k => !k.paused).length}</div>
               </CardContent>
             </Card>
           </div>
 
-          <Card className="bg-neutral-900 border-neutral-800 text-white">
+          <Card className="bg-white border-neutral-200 shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Configuration</CardTitle>
+              <CardTitle className="text-neutral-900">Configuration</CardTitle>
               {clinic.integrationMethod === "hosted" && (
                 <Dialog open={isEditing} onOpenChange={setIsEditing}>
-                  <DialogTrigger render={<Button variant="ghost" size="sm" className="text-neutral-400 hover:text-white hover:bg-neutral-800" />}>
+                  <DialogTrigger render={<Button variant="ghost" size="sm" className="text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100" />}>
                     <Edit className="w-4 h-4 mr-2" />
                     Edit Domain
                   </DialogTrigger>
-                  <DialogContent className="bg-neutral-900 border-neutral-800 text-white">
+                  <DialogContent className="bg-white border-neutral-200">
                     <DialogHeader>
-                      <DialogTitle>Edit Custom Domain</DialogTitle>
+                      <DialogTitle className="text-neutral-900">Edit Custom Domain</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 pt-4">
                       <div className="space-y-2">
-                        <Label htmlFor="customDomain">Custom Domain</Label>
+                        <Label htmlFor="customDomain" className="text-neutral-700">Custom Domain</Label>
                         <Input
                           id="customDomain"
                           value={customDomain}
                           onChange={(e) => setCustomDomain(e.target.value)}
-                          className="bg-neutral-950 border-neutral-800"
+                          className="bg-white border-neutral-200 text-neutral-900"
                           placeholder="blog.titaniumsmiles.in"
                         />
                         <p className="text-xs text-neutral-500">Do not include https://</p>
                       </div>
-                      <Button onClick={handleSaveDomain} disabled={isSaving} className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                      <Button onClick={handleSaveDomain} disabled={isSaving} className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-sm">
                         {isSaving ? "Saving..." : "Save Changes"}
                       </Button>
                     </div>
@@ -173,21 +181,21 @@ export default function ClinicDetailsPage() {
                 </Dialog>
               )}
             </CardHeader>
-            <CardContent className="space-y-4 text-sm text-neutral-300">
+            <CardContent className="space-y-4 text-sm text-neutral-600">
               <div className="grid grid-cols-2 gap-4">
-                <div><span className="text-neutral-500 block">Services</span> {clinic.services.join(", ")}</div>
-                <div><span className="text-neutral-500 block">Doctors</span> {clinic.doctorNames.join(", ")}</div>
-                <div><span className="text-neutral-500 block">Target Age</span> {clinic.targetAge}</div>
-                <div><span className="text-neutral-500 block">Tone</span> <span className="capitalize">{clinic.tone}</span></div>
-                <div><span className="text-neutral-500 block">Booking URL</span> <a href={clinic.bookingUrl} target="_blank" className="text-blue-400 hover:underline">{clinic.bookingUrl}</a></div>
+                <div><span className="text-neutral-900 font-medium block mb-1">Services</span> {clinic.services.join(", ")}</div>
+                <div><span className="text-neutral-900 font-medium block mb-1">Doctors</span> {clinic.doctorNames.join(", ")}</div>
+                <div><span className="text-neutral-900 font-medium block mb-1">Target Age</span> {clinic.targetAge}</div>
+                <div><span className="text-neutral-900 font-medium block mb-1">Tone</span> <span className="capitalize">{clinic.tone}</span></div>
+                <div><span className="text-neutral-900 font-medium block mb-1">Booking URL</span> <a href={clinic.bookingUrl} target="_blank" className="text-blue-600 hover:text-blue-700 hover:underline">{clinic.bookingUrl}</a></div>
                 {clinic.customDomain && (
-                  <div><span className="text-neutral-500 block">Custom Domain</span> <a href={`https://${clinic.customDomain}`} target="_blank" className="text-blue-400 hover:underline">{clinic.customDomain}</a></div>
+                  <div><span className="text-neutral-900 font-medium block mb-1">Custom Domain</span> <a href={`https://${clinic.customDomain}`} target="_blank" className="text-blue-600 hover:text-blue-700 hover:underline">{clinic.customDomain}</a></div>
                 )}
                 
                 {clinic.integrationMethod === "embed" && (
-                  <div className="col-span-2 mt-4 p-4 bg-neutral-950 rounded-md border border-neutral-800">
-                    <span className="text-neutral-500 block mb-2">Embed Script</span>
-                    <code className="text-xs text-green-400 break-all">
+                  <div className="col-span-2 mt-4 p-4 bg-neutral-50 rounded-lg border border-neutral-200 shadow-sm">
+                    <span className="text-neutral-900 font-medium block mb-2">Embed Script</span>
+                    <code className="text-xs text-blue-600 break-all bg-white p-2 rounded block border border-neutral-100">
                       &lt;script src=&quot;YOUR_DOMAIN/api/embed/{clinic._id}.js&quot;&gt;&lt;/script&gt;<br/>
                       &lt;div id=&quot;dental-blog&quot;&gt;&lt;/div&gt;
                     </code>
@@ -198,25 +206,37 @@ export default function ClinicDetailsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="posts" className="pt-4">
-          <Card className="bg-neutral-900 border-neutral-800 text-white">
+        <TabsContent value="posts" className="flex-1 min-w-0">
+          <Card className="bg-white border-neutral-200 text-neutral-900 shadow-sm">
             <CardContent className="p-0">
-               {/* Simplified table for Super Admin view */}
-               <div className="divide-y divide-neutral-800">
+               <div className="divide-y divide-neutral-100">
                   {posts.length === 0 && <div className="p-6 text-center text-neutral-500">No posts yet.</div>}
                   {posts.map(post => (
-                    <div key={post._id} className="p-4 flex items-center justify-between hover:bg-neutral-800/50">
-                      <div>
-                        <div className="font-medium">{post.title}</div>
-                        <div className="text-xs text-neutral-500 mt-1">{new Date(post.createdAt).toLocaleDateString()}</div>
+                    <div key={post._id} className="p-4 flex items-center justify-between hover:bg-neutral-50">
+                      <div className="flex-1 min-w-0 mr-4">
+                        <div className="font-medium text-neutral-900 truncate">{post.title}</div>
+                        <div className="text-xs text-neutral-500 mt-1 flex items-center gap-2">
+                          <span>{new Date(post.createdAt).toLocaleDateString()}</span>
+                          <span>•</span>
+                          <Badge variant="outline" className={
+                            post.status === "published" ? "text-green-700 bg-green-50 border-green-200" : 
+                            post.status === "flagged" ? "text-red-700 bg-red-50 border-red-200" : 
+                            "text-neutral-700 bg-neutral-100 border-neutral-200"
+                          }>
+                            {post.status}
+                          </Badge>
+                        </div>
                       </div>
-                      <Badge variant="outline" className={
-                        post.status === "published" ? "text-green-400 border-green-500/20" : 
-                        post.status === "flagged" ? "text-red-400 border-red-500/20" : 
-                        "text-neutral-400 border-neutral-500/20"
-                      }>
-                        {post.status}
-                      </Badge>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Link href={`/clinic/${clinic._id}/posts/${post._id}`}>
+                          <Button variant="outline" size="sm" className="text-blue-600 border-neutral-200 hover:bg-blue-50">
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                        </Link>
+                        <Button variant="outline" size="sm" className="text-red-600 border-neutral-200 hover:bg-red-50" onClick={() => handleDeletePost(post._id)}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                </div>
@@ -224,19 +244,19 @@ export default function ClinicDetailsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="keywords" className="pt-4">
-          <Card className="bg-neutral-900 border-neutral-800 text-white">
+        <TabsContent value="keywords" className="flex-1 min-w-0">
+          <Card className="bg-white border-neutral-200 text-neutral-900 shadow-sm">
             <CardContent className="p-0">
-               <div className="divide-y divide-neutral-800">
+               <div className="divide-y divide-neutral-100">
                   {keywords.length === 0 && <div className="p-6 text-center text-neutral-500">No keywords found.</div>}
                   {keywords.map(kw => (
-                    <div key={kw._id} className="p-4 flex items-center justify-between hover:bg-neutral-800/50">
+                    <div key={kw._id} className="p-4 flex items-center justify-between hover:bg-neutral-50">
                       <div>
-                        <div className="font-medium">{kw.term}</div>
+                        <div className="font-medium text-neutral-900">{kw.term}</div>
                         <div className="text-xs text-neutral-500 mt-1">{kw.localVariant}</div>
                       </div>
-                      <div className="text-right text-sm text-neutral-400">
-                        Score: {kw.performanceScore.toFixed(2)}
+                      <div className="text-right text-sm text-neutral-500">
+                        Score: <span className="font-medium text-neutral-900">{kw.performanceScore.toFixed(2)}</span>
                       </div>
                     </div>
                   ))}
@@ -245,14 +265,14 @@ export default function ClinicDetailsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="danger" className="pt-4">
-          <Card className="bg-red-950/10 border-red-900/20">
+        <TabsContent value="danger" className="flex-1 min-w-0">
+          <Card className="bg-red-50/50 border-red-200 shadow-sm">
             <CardContent className="p-6 space-y-4">
               <div>
-                <h3 className="text-lg font-medium text-red-400">Delete Clinic</h3>
-                <p className="text-neutral-500 text-sm mt-1">Permanently remove this clinic and all associated data. This action cannot be undone.</p>
+                <h3 className="text-lg font-medium text-red-600">Delete Clinic</h3>
+                <p className="text-neutral-600 text-sm mt-1">Permanently remove this clinic and all associated data. This action cannot be undone.</p>
               </div>
-              <Button onClick={handleDelete} className="bg-red-600 hover:bg-red-700 text-white">
+              <Button onClick={handleDelete} className="bg-red-600 hover:bg-red-700 text-white shadow-sm">
                 <Trash2 className="w-4 h-4 mr-2" />
                 Delete Clinic
               </Button>

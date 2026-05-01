@@ -49,30 +49,30 @@ export default function GeneratePostPage() {
     <div className="p-8 max-w-2xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
         <Link href={`/super-admin/clinics/${clinic._id}`}>
-          <Button variant="ghost" size="icon" className="text-neutral-400 hover:text-white hover:bg-neutral-800">
+          <Button variant="ghost" size="icon" className="text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100">
             <ArrowLeft className="h-5 w-5" />
           </Button>
         </Link>
         <div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Generate Post</h2>
-          <p className="text-neutral-400">for {clinic.name}</p>
+          <h2 className="text-2xl font-bold text-neutral-900 tracking-tight">Generate Post</h2>
+          <p className="text-neutral-500">for {clinic.name}</p>
         </div>
       </div>
 
-      <Card className="bg-neutral-900 border-neutral-800 text-white">
+      <Card className="bg-white border-neutral-200 shadow-sm text-neutral-900">
         <CardHeader>
           <CardTitle>Manual Trigger</CardTitle>
-          <CardDescription className="text-neutral-400">
+          <CardDescription className="text-neutral-500">
             This will trigger the full AI pipeline: Keyword Selection → Draft (Pass 1) → Safety Check (Pass 2) → SEO & Image Fetch.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="bg-neutral-950 p-6 rounded-md border border-neutral-800 space-y-4">
+          <div className="bg-neutral-50 p-6 rounded-lg border border-neutral-200 shadow-inner space-y-4">
             <div className="flex items-center gap-3">
-              {status === "idle" ? <Circle className="text-neutral-600 w-5 h-5" /> : 
+              {status === "idle" ? <Circle className="text-neutral-400 w-5 h-5" /> : 
                status === "generating" ? <Loader2 className="text-blue-500 w-5 h-5 animate-spin" /> : 
                <CheckCircle2 className="text-green-500 w-5 h-5" />}
-              <span className={status === "generating" ? "text-white" : "text-neutral-400"}>
+              <span className={status === "generating" ? "text-neutral-900 font-medium" : "text-neutral-600"}>
                 {status === "idle" ? "Ready to generate" : 
                  status === "generating" ? "Running AI Pipeline (this takes ~30 seconds)..." : 
                  status === "error" ? "Generation Failed" : "Complete!"}
@@ -80,7 +80,7 @@ export default function GeneratePostPage() {
             </div>
             
             {status === "error" && (
-              <div className="text-red-400 text-sm mt-2 p-3 bg-red-950/20 border border-red-900/30 rounded">
+              <div className="text-red-700 text-sm mt-2 p-3 bg-red-50 border border-red-200 rounded-md">
                 Error: {errorMessage}
               </div>
             )}
@@ -89,13 +89,13 @@ export default function GeneratePostPage() {
           <div className="flex gap-3 justify-end pt-4">
             {status === "success" ? (
               <Link href={`/clinic/${clinic._id}/posts`}>
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white">View Posts in Tenant Portal</Button>
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm">View Posts in Tenant Portal</Button>
               </Link>
             ) : (
               <Button 
                 onClick={handleGenerate} 
                 disabled={status === "generating"} 
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
               >
                 {status === "generating" ? "Generating..." : "Generate Now"}
               </Button>
