@@ -96,7 +96,7 @@ export default function EditPostPage() {
       });
       
       toast.success("Image uploaded successfully!");
-    } catch (error) {
+    } catch {
       toast.error("Failed to upload image");
     } finally {
       setIsUploading(false);
@@ -297,12 +297,12 @@ export default function EditPostPage() {
                   onChange={handleImageUpload}
                   disabled={isUploading}
                 />
-                <Button variant="outline" size="sm" asChild disabled={isUploading}>
-                  <label htmlFor="imageUpload" className="cursor-pointer">
+                <label htmlFor="imageUpload" className="cursor-pointer">
+                  <div className="inline-flex items-center justify-center rounded-[min(var(--radius-md),12px)] border border-border bg-background hover:bg-muted hover:text-foreground h-7 gap-1 px-2.5 text-[0.8rem] font-medium transition-all" {...(isUploading ? {style: {opacity: 0.5, pointerEvents: 'none'}} : {})}>
                     <Upload className="w-4 h-4 mr-2" />
                     {isUploading ? "Uploading..." : "Upload Image"}
-                  </label>
-                </Button>
+                  </div>
+                </label>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
