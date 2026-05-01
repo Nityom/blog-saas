@@ -7,6 +7,7 @@ import { useParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart3, TrendingUp, Eye } from "lucide-react";
 import Link from "next/link";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 export default function ClinicAnalyticsPage() {
   const params = useParams();
@@ -15,8 +16,9 @@ export default function ClinicAnalyticsPage() {
   const topPosts = useQuery(api.analytics.getTopPerformingPosts, { clinicId: clinicId as Id<"clinics"> });
   const keywords = useQuery(api.keywords.getByClinic, { clinicId: clinicId as Id<"clinics"> });
   const allPosts = useQuery(api.posts.getPublishedByClinic, { clinicId: clinicId as Id<"clinics"> });
+  const analyticsData = useQuery(api.analytics.getAnalyticsOverTime, { clinicId: clinicId as Id<"clinics"> });
 
-  if (topPosts === undefined || keywords === undefined || allPosts === undefined) {
+  if (topPosts === undefined || keywords === undefined || allPosts === undefined || analyticsData === undefined) {
     return <div className="p-8 text-neutral-400">Loading analytics...</div>;
   }
 
@@ -25,6 +27,24 @@ export default function ClinicAnalyticsPage() {
   const getPostTitle = (postId: string) => {
     return allPosts.find(p => p._id === postId)?.title || "Unknown Post";
   };
+
+  // Combine analytics records by day (or just use raw data if there's one per day, but we'll mock dates if needed)
+  const chartData = analyticsData.map(record => ({
+    name: getPostTitle(record.postId).substring(0, 15) + "...",
+    views: record.views,
+    time: Math.round(record.avgTimeOnPage || 0)
+  })).sort((a, b) => b.views - a.views).slice(0, 10);
+
+  // If no data, use mock data for empty state preview
+  const finalChartData = chartData.length > 0 ? chartData : [
+    { name: "Post 1", views: 400 },
+    { name: "Post 2", views: 300 },
+    { name: "Post 3", views: 200 },
+    { name: "Post 4", views: 278 },
+    { name: "Post 5", views: 189 },
+    { name: "Post 6", views: 239 },
+    { name: "Post 7", views: 349 },
+  ];
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6">
@@ -90,8 +110,27 @@ export default function ClinicAnalyticsPage() {
             <BarChart3 className="w-5 h-5 text-purple-500" /> Traffic Overview
           </CardTitle>
         </CardHeader>
-        <CardContent className="h-64 flex items-center justify-center border-t border-neutral-100 bg-neutral-50">
-           <p className="text-neutral-400 text-sm">Chart visualization would be rendered here using Recharts or Chart.js</p>
+        <CardContent className="h-[400px] flex flex-col items-center justify-center border-t border-neutral-100 bg-neutral-50 pt-6">
+          {chartData.length === 0 && (
+            <p className="text-neutral-400 text-sm mb-4 text-center">Not enough data to display. Showing sample overview.</p>
+          )}
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={finalChartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.8}/>
+                  <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <XAxis dataKey="name" className="text-xs" tick={{ fill: '#888' }} axisLine={true} tickLine={false} />
+              <YAxis className="text-xs" tick={{ fill: '#888' }} axisLine={false} tickLine={false} />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e5e5" />
+              <Tooltip 
+                contentStyle={{ borderRadius: '8px', border: '1px solid #e5e5e5', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+              />
+              <Area type="monotone" dataKey="views" stroke="#8b5cf6" fillOpacity={1} fill="url(#colorViews)" />
+            </AreaChart>
+          </ResponsiveContainer>
         </CardContent>
       </Card>
     </div>
