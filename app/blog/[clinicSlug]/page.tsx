@@ -143,15 +143,6 @@ export default async function BlogIndexPage({ params, searchParams }: { params: 
       
       <footer className="bg-white border-t border-neutral-200 py-12 mt-12">
         <div className="max-w-6xl mx-auto px-4 flex flex-col items-center justify-center gap-6">
-          <Link href={`${basePath || '/'}`} className="flex flex-row items-center justify-center gap-4 text-left group">
-            {logoUrl && (
-              <div className="flex-shrink-0 transition-transform group-hover:scale-105">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={logoUrl} alt={`${clinic.name} Logo`} className="h-12 w-auto max-w-[120px] object-contain" />
-              </div>
-            )}
-            <h2 className="text-2xl font-extrabold text-neutral-900 tracking-tight">{clinic.name}</h2>
-          </Link>
           <div className="text-neutral-600 text-sm text-center">
             Copyright &copy; {new Date().getFullYear()} {clinic.name} | Developed by <span className="text-[#0056b3] font-medium">Nityom Tikhe</span>
           </div>
