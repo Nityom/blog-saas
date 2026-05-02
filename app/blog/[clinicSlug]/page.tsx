@@ -153,7 +153,7 @@ export default async function BlogIndexPage({ params, searchParams }: { params: 
             <h2 className="text-2xl font-extrabold text-neutral-900 tracking-tight">{clinic.name}</h2>
           </Link>
           <div className="text-neutral-600 text-sm text-center">
-            Copyright &copy; {new Date().getFullYear()} {clinic.name} | Developed by <span className="text-[#0056b3] font-medium">MarronCorp Technologies Pvt. Ltd.</span>
+            Copyright &copy; {new Date().getFullYear()} {clinic.name} | Developed by <span className="text-[#0056b3] font-medium">Nityom Tikhe</span>
           </div>
         </div>
       </footer>
