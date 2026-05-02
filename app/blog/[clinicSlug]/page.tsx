@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { Metadata } from "next";
 import SharePostButton from "@/components/share-post-button";
+import { Phone, Clock, MapPin, Star } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -140,8 +141,81 @@ export default async function BlogIndexPage({ params, searchParams }: { params: 
         )}
       </main>
       
-      <footer className="bg-white border-t border-neutral-200 py-8 text-center text-neutral-500">
-        <p>&copy; {new Date().getFullYear()} {clinic.name}. All rights reserved.</p>
+      <footer className="bg-[#1c1c1c] text-neutral-300 py-16 border-t border-neutral-800 font-sans mt-12">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 lg:gap-24">
+            
+            {/* Left Column */}
+            <div className="space-y-8">
+              <div className="flex items-center gap-4">
+                {logoUrl && (
+                  <div className="flex-shrink-0 bg-white p-2 rounded-xl">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={logoUrl} alt={`${clinic.name} Logo`} className="h-12 w-auto object-contain" />
+                  </div>
+                )}
+                <h2 className="text-2xl font-bold text-white tracking-tight">{clinic.name}</h2>
+              </div>
+              
+              <p className="text-sm leading-relaxed text-neutral-400 max-w-md">
+                {clinic.name} is a top-rated local practice specializing in cosmetic, preventative, and restorative dentistry. Our expert team is committed to providing personalized care, cutting-edge treatments, and a comfortable experience for every patient.
+              </p>
+            </div>
+
+            {/* Right Column */}
+            <div className="space-y-8">
+              <div className="flex items-start gap-4">
+                <div className="bg-white text-neutral-900 p-2.5 rounded-lg flex-shrink-0 mt-1">
+                  <Phone className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm text-neutral-400 mb-1">Phone Numbers</h4>
+                  <p className="text-white font-medium text-sm leading-relaxed">+91 9917609177<br/>+91 7771970889</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-4">
+                <div className="bg-white text-neutral-900 p-2.5 rounded-lg flex-shrink-0 mt-1">
+                  <Clock className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm text-neutral-400 mb-1">Open Hour</h4>
+                  <p className="text-white font-medium text-sm">10:00 AM - 8:00 PM</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-4">
+                <div className="bg-white text-neutral-900 p-2.5 rounded-lg flex-shrink-0 mt-1">
+                  <MapPin className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm text-neutral-400 mb-1">Clinic Address</h4>
+                  <p className="text-white font-medium text-sm leading-relaxed">
+                    E3/119, First Floor, Arera<br/>
+                    Colony, Main Road No.3, Near<br/>
+                    Gastrocare Hospital, Bhopal,<br/>
+                    M.P. 462016
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-4">
+                <div className="bg-white text-neutral-900 p-2.5 rounded-lg flex-shrink-0 mt-1">
+                  <Star className="w-5 h-5 fill-current" />
+                </div>
+                <div>
+                  <h4 className="text-sm text-neutral-400 mb-1">Write A Review</h4>
+                  <a href="#" className="text-white font-medium text-sm hover:underline">Share Your Experience</a>
+                </div>
+              </div>
+            </div>
+            
+          </div>
+          
+          <div className="mt-16 pt-8 border-t border-neutral-800 text-center text-sm text-neutral-500">
+            &copy; {new Date().getFullYear()} {clinic.name}. All Rights Reserved
+          </div>
+        </div>
       </footer>
     </div>
   );

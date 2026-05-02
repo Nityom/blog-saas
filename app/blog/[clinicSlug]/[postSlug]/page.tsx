@@ -7,6 +7,7 @@ import Link from "next/link";
 import { markdownToHtml } from "@/lib/markdown";
 import PostViewTracker from "./PostViewTracker";
 import SharePostButton from "@/components/share-post-button";
+import { ArrowLeft, Phone, Clock, MapPin, Star } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -81,6 +82,9 @@ export default async function BlogPostPage({ params }: { params: { clinicSlug: s
         <div className="max-w-4xl mx-auto px-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-4">
+              <Link href={`${basePath || '/'}`} className="flex items-center justify-center h-10 w-10 rounded-full hover:bg-neutral-100 transition-colors mr-1">
+                <ArrowLeft className="w-5 h-5 text-neutral-600" />
+              </Link>
               {logoUrl && (
                 <div className="flex-shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -168,13 +172,79 @@ export default async function BlogPostPage({ params }: { params: { clinicSlug: s
         )}
       </main>
 
-      <footer className="bg-neutral-900 text-neutral-400 py-12 text-center mt-12">
-        <div className="max-w-4xl mx-auto px-4">
-          <h2 className="text-xl font-bold text-white mb-4">{clinic.name}</h2>
-          <p className="mb-6">{clinic.city}</p>
-          <a href={clinic.bookingUrl} target="_blank" className="text-blue-400 hover:underline">Book an Appointment</a>
-          <div className="mt-12 text-sm border-t border-neutral-800 pt-8">
-            &copy; {new Date().getFullYear()} {clinic.name}. All rights reserved.
+      <footer className="bg-[#1c1c1c] text-neutral-300 py-16 border-t border-neutral-800 font-sans mt-12">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 lg:gap-24">
+            
+            {/* Left Column */}
+            <div className="space-y-8">
+              <div className="flex items-center gap-4">
+                {logoUrl && (
+                  <div className="flex-shrink-0 bg-white p-2 rounded-xl">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={logoUrl} alt={`${clinic.name} Logo`} className="h-12 w-auto object-contain" />
+                  </div>
+                )}
+                <h2 className="text-2xl font-bold text-white tracking-tight">{clinic.name}</h2>
+              </div>
+              
+              <p className="text-sm leading-relaxed text-neutral-400 max-w-md">
+                {clinic.name} is a top-rated local practice specializing in cosmetic, preventative, and restorative dentistry. Our expert team is committed to providing personalized care, cutting-edge treatments, and a comfortable experience for every patient.
+              </p>
+            </div>
+
+            {/* Right Column */}
+            <div className="space-y-8">
+              <div className="flex items-start gap-4">
+                <div className="bg-white text-neutral-900 p-2.5 rounded-lg flex-shrink-0 mt-1">
+                  <Phone className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm text-neutral-400 mb-1">Phone Numbers</h4>
+                  <p className="text-white font-medium text-sm leading-relaxed">+91 9917609177<br/>+91 7771970889</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-4">
+                <div className="bg-white text-neutral-900 p-2.5 rounded-lg flex-shrink-0 mt-1">
+                  <Clock className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm text-neutral-400 mb-1">Open Hour</h4>
+                  <p className="text-white font-medium text-sm">10:00 AM - 8:00 PM</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-4">
+                <div className="bg-white text-neutral-900 p-2.5 rounded-lg flex-shrink-0 mt-1">
+                  <MapPin className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm text-neutral-400 mb-1">Clinic Address</h4>
+                  <p className="text-white font-medium text-sm leading-relaxed">
+                    E3/119, First Floor, Arera<br/>
+                    Colony, Main Road No.3, Near<br/>
+                    Gastrocare Hospital, Bhopal,<br/>
+                    M.P. 462016
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-4">
+                <div className="bg-white text-neutral-900 p-2.5 rounded-lg flex-shrink-0 mt-1">
+                  <Star className="w-5 h-5 fill-current" />
+                </div>
+                <div>
+                  <h4 className="text-sm text-neutral-400 mb-1">Write A Review</h4>
+                  <a href="#" className="text-white font-medium text-sm hover:underline">Share Your Experience</a>
+                </div>
+              </div>
+            </div>
+            
+          </div>
+          
+          <div className="mt-16 pt-8 border-t border-neutral-800 text-center text-sm text-neutral-500">
+            &copy; {new Date().getFullYear()} {clinic.name}. All Rights Reserved
           </div>
         </div>
       </footer>
