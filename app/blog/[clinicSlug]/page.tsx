@@ -48,19 +48,31 @@ export default async function BlogIndexPage({ params, searchParams }: { params: 
 
   return (
     <div className="min-h-screen bg-neutral-50 font-sans">
-      <header className="bg-white border-b border-neutral-200 py-12">
-        <div className="max-w-4xl mx-auto px-4">
-          <div className="flex flex-row items-center justify-center gap-5 text-left">
-            {logoUrl && (
-              <div className="flex-shrink-0">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={logoUrl} alt={`${clinic.name} Logo`} className="h-16 w-16 sm:h-20 sm:w-20 object-contain" />
+      <header className="bg-white border-b border-neutral-200 py-6 sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex flex-row items-center gap-4 text-left">
+              {logoUrl && (
+                <Link href={`${basePath || '/'}`} className="flex-shrink-0 transition-transform hover:scale-105">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={logoUrl} alt={`${clinic.name} Logo`} className="h-12 w-auto max-w-[120px] object-contain" />
+                </Link>
+              )}
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-neutral-900 tracking-tight">{clinic.name}</h1>
+                <p className="text-sm sm:text-base text-neutral-500 font-medium">Dental insights and advice from {clinic.city}</p>
               </div>
-            )}
-            <div>
-              <h1 className="text-4xl font-bold text-neutral-900 tracking-tight mb-2">{clinic.name}</h1>
-              <p className="text-xl text-neutral-500">Dental insights and advice from {clinic.city}</p>
             </div>
+            {clinic.bookingUrl && (
+              <a 
+                href={clinic.bookingUrl} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="hidden sm:inline-flex bg-blue-600 text-white font-semibold px-6 py-2.5 rounded-full shadow-sm hover:bg-blue-700 hover:shadow-md transition-all text-sm items-center gap-2"
+              >
+                Book Appointment
+              </a>
+            )}
           </div>
         </div>
       </header>
