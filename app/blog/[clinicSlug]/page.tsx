@@ -6,6 +6,9 @@ import { headers } from "next/headers";
 import { Metadata } from "next";
 import SharePostButton from "@/components/share-post-button";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 export async function generateMetadata({ params }: { params: { clinicSlug: string } }): Promise<Metadata> {
@@ -47,9 +50,9 @@ export default async function BlogIndexPage({ params, searchParams }: { params: 
     <div className="min-h-screen bg-neutral-50 font-sans">
       <header className="bg-white border-b border-neutral-200 py-12">
         <div className="max-w-4xl mx-auto px-4">
-          <div className="flex flex-col items-center gap-5 text-center sm:flex-row sm:justify-center sm:text-left">
+          <div className="flex flex-row items-center justify-center gap-5 text-left">
             {logoUrl && (
-              <div className="flex-shrink-0 rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm">
+              <div className="flex-shrink-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={logoUrl} alt={`${clinic.name} Logo`} className="h-16 w-16 sm:h-20 sm:w-20 object-contain" />
               </div>

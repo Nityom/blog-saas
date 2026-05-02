@@ -8,6 +8,9 @@ import { markdownToHtml } from "@/lib/markdown";
 import PostViewTracker from "./PostViewTracker";
 import SharePostButton from "@/components/share-post-button";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 export async function generateMetadata({ params }: { params: { clinicSlug: string, postSlug: string } }): Promise<Metadata> {

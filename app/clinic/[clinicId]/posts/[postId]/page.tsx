@@ -50,9 +50,10 @@ export default function EditPostPage() {
   const [isPublishing, setIsPublishing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [savedFormData, setSavedFormData] = useState(formData);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    if (post) {
+    if (post && !isInitialized) {
       const nextFormData = {
         title: post.title,
         metaTitle: post.metaTitle,
@@ -66,8 +67,9 @@ export default function EditPostPage() {
 
       setFormData(nextFormData);
       setSavedFormData(nextFormData);
+      setIsInitialized(true);
     }
-  }, [post]);
+  }, [post, isInitialized]);
 
   if (post === undefined || clinic === undefined || socialPosts === undefined) {
     return <div className="p-8 text-neutral-400">Loading...</div>;
