@@ -172,12 +172,12 @@ export default async function BlogPostPage({ params }: { params: { clinicSlug: s
         )}
       </main>
 
-      <footer className="bg-[#1c1c1c] text-neutral-300 py-16 border-t border-neutral-800 font-sans mt-12">
+      <footer className="bg-[#1c1c1c] text-neutral-300 py-10 border-t border-neutral-800 font-sans mt-12">
         <div className="max-w-6xl mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 lg:gap-24">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-16">
             
             {/* Left Column */}
-            <div className="space-y-8">
+            <div className="space-y-5">
               <div className="flex items-center gap-4">
                 {logoUrl && (
                   <div className="flex-shrink-0 bg-white p-2 rounded-xl">
@@ -194,7 +194,7 @@ export default async function BlogPostPage({ params }: { params: { clinicSlug: s
             </div>
 
             {/* Right Column */}
-            <div className="space-y-8">
+            <div className="space-y-5">
               <div className="flex items-start gap-4">
                 <div className="bg-white text-neutral-900 p-2.5 rounded-lg flex-shrink-0 mt-1">
                   <Phone className="w-5 h-5" />
@@ -243,7 +243,7 @@ export default async function BlogPostPage({ params }: { params: { clinicSlug: s
             
           </div>
           
-          <div className="mt-16 pt-8 border-t border-neutral-800 text-center text-sm text-neutral-500">
+          <div className="mt-10 pt-6 border-t border-neutral-800 text-center text-sm text-neutral-500">
             &copy; {new Date().getFullYear()} {clinic.name}. All Rights Reserved
           </div>
         </div>
