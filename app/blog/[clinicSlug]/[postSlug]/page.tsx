@@ -24,6 +24,9 @@ export async function generateMetadata({ params }: { params: { clinicSlug: strin
   return {
     title: post.metaTitle || post.title,
     description: post.metaDesc || post.excerpt,
+    icons: {
+      icon: clinic.logoUrl || '/favicon.ico',
+    },
     openGraph: {
       title: post.metaTitle || post.title,
       description: post.metaDesc || post.excerpt,
@@ -127,9 +130,12 @@ export default async function BlogPostPage({ params }: { params: { clinicSlug: s
               alt={post.title} 
               className="w-full h-auto max-h-[500px] object-cover rounded-xl shadow-sm"
             />
-            <figcaption className="text-center text-sm text-neutral-500 mt-4">
-              Photo by <a href={post.imageCreditUrl} target="_blank" rel="nofollow" className="underline hover:text-neutral-800">{post.imageCredit}</a> on Pexels
-            </figcaption>
+            {post.imageCredit && (
+              <figcaption className="text-center text-sm text-neutral-500 mt-4">
+                Photo by <a href={post.imageCreditUrl} target="_blank" rel="nofollow" className="underline hover:text-neutral-800">{post.imageCredit}</a>
+                {post.imageCreditUrl?.includes('pexels') ? ' on Pexels' : ''}
+              </figcaption>
+            )}
           </figure>
 
           {/* Markdown Content */}

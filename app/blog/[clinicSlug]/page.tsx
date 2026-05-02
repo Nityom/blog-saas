@@ -18,6 +18,9 @@ export async function generateMetadata({ params }: { params: { clinicSlug: strin
   return {
     title: `Blog | ${clinic.name}`,
     description: `Read the latest dental advice and news from ${clinic.name} in ${clinic.city}.`,
+    icons: {
+      icon: clinic.logoUrl || '/favicon.ico',
+    },
   };
 }
 
