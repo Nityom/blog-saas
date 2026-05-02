@@ -7,7 +7,7 @@ import Link from "next/link";
 import { markdownToHtml } from "@/lib/markdown";
 import PostViewTracker from "./PostViewTracker";
 import SharePostButton from "@/components/share-post-button";
-import { ArrowLeft, Phone, Clock, MapPin, Star } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -172,79 +172,19 @@ export default async function BlogPostPage({ params }: { params: { clinicSlug: s
         )}
       </main>
 
-      <footer className="bg-[#1c1c1c] text-neutral-300 py-10 border-t border-neutral-800 font-sans mt-12">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-16">
-            
-            {/* Left Column */}
-            <div className="space-y-5">
-              <div className="flex items-center gap-4">
-                {logoUrl && (
-                  <div className="flex-shrink-0 bg-white p-2 rounded-xl">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={logoUrl} alt={`${clinic.name} Logo`} className="h-12 w-auto object-contain" />
-                  </div>
-                )}
-                <h2 className="text-2xl font-bold text-white tracking-tight">{clinic.name}</h2>
+      <footer className="bg-white border-t border-neutral-200 py-12 mt-12">
+        <div className="max-w-6xl mx-auto px-4 flex flex-col items-center justify-center gap-6">
+          <Link href={`${basePath || '/'}`} className="flex flex-row items-center justify-center gap-4 text-left group">
+            {logoUrl && (
+              <div className="flex-shrink-0 transition-transform group-hover:scale-105">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={logoUrl} alt={`${clinic.name} Logo`} className="h-12 w-auto max-w-[120px] object-contain" />
               </div>
-              
-              <p className="text-sm leading-relaxed text-neutral-400 max-w-md">
-                {clinic.name} is a top-rated local practice specializing in cosmetic, preventative, and restorative dentistry. Our expert team is committed to providing personalized care, cutting-edge treatments, and a comfortable experience for every patient.
-              </p>
-            </div>
-
-            {/* Right Column */}
-            <div className="space-y-5">
-              <div className="flex items-start gap-4">
-                <div className="bg-white text-neutral-900 p-2.5 rounded-lg flex-shrink-0 mt-1">
-                  <Phone className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-sm text-neutral-400 mb-1">Phone Numbers</h4>
-                  <p className="text-white font-medium text-sm leading-relaxed">+91 9917609177<br/>+91 7771970889</p>
-                </div>
-              </div>
-              
-              <div className="flex items-start gap-4">
-                <div className="bg-white text-neutral-900 p-2.5 rounded-lg flex-shrink-0 mt-1">
-                  <Clock className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-sm text-neutral-400 mb-1">Open Hour</h4>
-                  <p className="text-white font-medium text-sm">10:00 AM - 8:00 PM</p>
-                </div>
-              </div>
-              
-              <div className="flex items-start gap-4">
-                <div className="bg-white text-neutral-900 p-2.5 rounded-lg flex-shrink-0 mt-1">
-                  <MapPin className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-sm text-neutral-400 mb-1">Clinic Address</h4>
-                  <p className="text-white font-medium text-sm leading-relaxed">
-                    E3/119, First Floor, Arera<br/>
-                    Colony, Main Road No.3, Near<br/>
-                    Gastrocare Hospital, Bhopal,<br/>
-                    M.P. 462016
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex items-start gap-4">
-                <div className="bg-white text-neutral-900 p-2.5 rounded-lg flex-shrink-0 mt-1">
-                  <Star className="w-5 h-5 fill-current" />
-                </div>
-                <div>
-                  <h4 className="text-sm text-neutral-400 mb-1">Write A Review</h4>
-                  <a href="#" className="text-white font-medium text-sm hover:underline">Share Your Experience</a>
-                </div>
-              </div>
-            </div>
-            
-          </div>
-          
-          <div className="mt-10 pt-6 border-t border-neutral-800 text-center text-sm text-neutral-500">
-            &copy; {new Date().getFullYear()} {clinic.name}. All Rights Reserved
+            )}
+            <h2 className="text-2xl font-extrabold text-neutral-900 tracking-tight">{clinic.name}</h2>
+          </Link>
+          <div className="text-neutral-600 text-sm text-center">
+            Copyright &copy; {new Date().getFullYear()} {clinic.name} | Developed by <span className="text-[#0056b3] font-medium">MarronCorp Technologies Pvt. Ltd.</span>
           </div>
         </div>
       </footer>
