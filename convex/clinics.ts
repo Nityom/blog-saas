@@ -59,6 +59,8 @@ export const create = mutation({
     autoPostFacebook: v.optional(v.boolean()),
     autoPostInstagram: v.optional(v.boolean()),
     logoUrl: v.optional(v.string()),
+    subscriptionStartDate: v.optional(v.string()),
+    monthlyRate: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     let encryptedPass: string | undefined = undefined;
@@ -103,6 +105,9 @@ export const update = mutation({
     autoPostFacebook: v.optional(v.boolean()),
     autoPostInstagram: v.optional(v.boolean()),
     logoUrl: v.optional(v.string()),
+    subscriptionStartDate: v.optional(v.string()),
+    monthlyRate: v.optional(v.number()),
+    lastPaidCycleStart: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const { clinicId, wordpressAppPassword, ...updates } = args;
@@ -160,5 +165,14 @@ export const remove = mutation({
     // Ideally we should also delete related keywords, posts, etc.
     // For now we just delete the clinic
     await ctx.db.delete(args.clinicId);
+  },
+});
+
+export const markPaid = mutation({
+  args: { clinicId: v.id("clinics"), cycleStartTime: v.number() },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.clinicId, {
+      lastPaidCycleStart: args.cycleStartTime,
+    });
   },
 });

@@ -24,6 +24,9 @@ export default defineSchema({
     autoPostFacebook: v.optional(v.boolean()),
     autoPostInstagram: v.optional(v.boolean()),
     logoUrl: v.optional(v.string()),
+    subscriptionStartDate: v.optional(v.string()),
+    monthlyRate: v.optional(v.number()),
+    lastPaidCycleStart: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_slug", ["slug"])

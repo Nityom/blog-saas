@@ -34,6 +34,8 @@ export default function NewClinicPage() {
     customDomain: "",
     autoPostFacebook: false,
     autoPostInstagram: false,
+    subscriptionStartDate: "",
+    monthlyRate: "",
   });
 
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -133,6 +135,8 @@ export default function NewClinicPage() {
         autoPostFacebook: formData.autoPostFacebook,
         autoPostInstagram: formData.autoPostInstagram,
         ...(finalLogoUrl ? { logoUrl: finalLogoUrl } : {}),
+        ...(formData.subscriptionStartDate ? { subscriptionStartDate: formData.subscriptionStartDate } : {}),
+        ...(formData.monthlyRate ? { monthlyRate: Number(formData.monthlyRate) } : {}),
       });
 
       // 5. Seed Keywords
@@ -364,6 +368,23 @@ export default function NewClinicPage() {
                 <p className="text-sm text-neutral-500">You will be provided an embed script to paste on the client&apos;s website.</p>
               </div>
             )}
+
+            <div className="pt-6 border-t border-neutral-200 space-y-4">
+              <div>
+                <h3 className="text-base font-semibold text-neutral-900">Billing</h3>
+                <p className="text-sm text-neutral-500 mt-1">Manage the subscription start date and monthly rate for this client.</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="subscriptionStartDate" className="text-neutral-700">Subscription Start Date</Label>
+                  <Input id="subscriptionStartDate" name="subscriptionStartDate" type="date" value={formData.subscriptionStartDate} onChange={handleChange} className="bg-white border-neutral-300 focus-visible:ring-blue-500 shadow-sm" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="monthlyRate" className="text-neutral-700">Monthly Rate</Label>
+                  <Input id="monthlyRate" name="monthlyRate" type="number" min="0" value={formData.monthlyRate} onChange={handleChange} className="bg-white border-neutral-300 focus-visible:ring-blue-500 shadow-sm" placeholder="2000" />
+                </div>
+              </div>
+            </div>
 
             <div className="pt-6 border-t border-neutral-200 space-y-4">
               <div>

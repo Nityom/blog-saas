@@ -39,6 +39,9 @@ export default function ClinicDetailsPage() {
   const [customDomain, setCustomDomain] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isUpdatingSocial, setIsUpdatingSocial] = useState(false);
+  const [subscriptionStartDate, setSubscriptionStartDate] = useState("");
+  const [monthlyRate, setMonthlyRate] = useState<number | "">("");
+  const [isSavingBilling, setIsSavingBilling] = useState(false);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
@@ -53,6 +56,8 @@ export default function ClinicDetailsPage() {
   useEffect(() => {
     if (clinic) {
       setCustomDomain(clinic.customDomain || "");
+      setSubscriptionStartDate(clinic.subscriptionStartDate || "");
+      setMonthlyRate(clinic.monthlyRate ?? "");
       setSocialSettings({
         autoPostFacebook: clinic.autoPostFacebook ?? false,
         autoPostInstagram: clinic.autoPostInstagram ?? false,
@@ -111,6 +116,22 @@ export default function ClinicDetailsPage() {
       toast.error((e as Error).message || "Failed to update domain");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleSaveBilling = async () => {
+    setIsSavingBilling(true);
+    try {
+      await updateClinic({
+        clinicId: clinic._id,
+        subscriptionStartDate: subscriptionStartDate || undefined,
+        monthlyRate: monthlyRate === "" ? undefined : Number(monthlyRate),
+      });
+      toast.success("Billing configuration updated!");
+    } catch (e: unknown) {
+      toast.error((e as Error).message || "Failed to update billing");
+    } finally {
+      setIsSavingBilling(false);
     }
   };
 
@@ -486,6 +507,41 @@ export default function ClinicDetailsPage() {
                   </div>
                 )}
               </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white border-neutral-200 shadow-sm mt-6">
+            <CardHeader>
+              <CardTitle className="text-neutral-900">Billing Configuration</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="subscriptionStartDate" className="text-neutral-700">Subscription Start Date</Label>
+                  <Input
+                    id="subscriptionStartDate"
+                    type="date"
+                    value={subscriptionStartDate}
+                    onChange={(e) => setSubscriptionStartDate(e.target.value)}
+                    className="bg-white border-neutral-200 text-neutral-900"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="monthlyRate" className="text-neutral-700">Monthly Rate</Label>
+                  <Input
+                    id="monthlyRate"
+                    type="number"
+                    min="0"
+                    value={monthlyRate}
+                    onChange={(e) => setMonthlyRate(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="bg-white border-neutral-200 text-neutral-900"
+                    placeholder="2000"
+                  />
+                </div>
+              </div>
+              <Button onClick={handleSaveBilling} disabled={isSavingBilling} className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm">
+                {isSavingBilling ? "Saving..." : "Save Billing Settings"}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
