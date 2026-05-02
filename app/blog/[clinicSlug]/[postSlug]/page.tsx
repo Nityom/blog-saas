@@ -6,6 +6,7 @@ import { Metadata } from "next";
 import Link from "next/link";
 import { markdownToHtml } from "@/lib/markdown";
 import PostViewTracker from "./PostViewTracker";
+import SharePostButton from "@/components/share-post-button";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
@@ -41,19 +42,15 @@ export default async function BlogPostPage({ params }: { params: { clinicSlug: s
   }
 
   // Determine if we are on a custom domain to format links correctly
-  const host = headers().get("host") || "";
+  const requestHeaders = headers();
+  const host = requestHeaders.get("host") || "";
+  const protocol = requestHeaders.get("x-forwarded-proto") || "https";
   const isCustomDomain = !host.includes("localhost") && !host.includes("vercel.app") && !host.includes("vercel.pub");
   const basePath = isCustomDomain ? "" : `/blog/${clinic.slug}`;
+  const siteOrigin = `${protocol}://${host}`;
   const logoUrl = clinic.logoUrl || "https://titaniumsmiles.in/logo.svg";
 
-  console.log("[blog.post] clinic logo state", {
-    clinicId: clinic._id,
-    slug: clinic.slug,
-    storedLogoUrl: clinic.logoUrl,
-    resolvedLogoUrl: logoUrl,
-    postId: post._id,
-    postSlug: post.slug,
-  });
+  
 
   // Get related posts (3 posts from same clinic, different slug, preferably same keyword)
   const allPosts = await convex.query(api.posts.getPublishedByClinic, { clinicId: clinic._id });
@@ -150,15 +147,18 @@ export default async function BlogPostPage({ params }: { params: { clinicSlug: s
             <h3 className="text-2xl font-bold mb-8">Related Articles</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {relatedPosts.map(rp => (
-                <Link key={rp._id} href={`${basePath}/${rp.slug}`} className="group block">
-                  <div className="rounded-xl overflow-hidden border border-neutral-200 h-full flex flex-col hover:shadow-md transition-shadow">
+                <div key={rp._id} className="group relative overflow-hidden rounded-xl border border-neutral-200 hover:shadow-md transition-shadow">
+                  <div className="absolute right-3 top-3 z-10">
+                    <SharePostButton url={`${siteOrigin}${basePath}/${rp.slug}`} title={rp.title} />
+                  </div>
+                  <Link href={`${basePath}/${rp.slug}`} className="block h-full">
                     <img src={rp.imageUrl} alt={rp.title} className="w-full h-32 object-cover" />
                     <div className="p-4 flex flex-col flex-1">
                       <h4 className="font-bold text-neutral-900 group-hover:text-blue-600 line-clamp-2 mb-2">{rp.title}</h4>
                       <p className="text-sm text-neutral-500 line-clamp-2">{rp.excerpt}</p>
                     </div>
-                  </div>
-                </Link>
+                  </Link>
+                </div>
               ))}
             </div>
           </div>

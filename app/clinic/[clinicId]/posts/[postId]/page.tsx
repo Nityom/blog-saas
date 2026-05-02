@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import Link from "next/link";
-import { ArrowLeft, Save, Globe, Trash2, AlertTriangle, CheckCircle2, Upload } from "lucide-react";
+import { ArrowLeft, Save, Globe, Trash2, AlertTriangle, CheckCircle2, Upload, RotateCcw } from "lucide-react";
 import dynamic from 'next/dynamic';
 import { parseJsonFromText } from "@/lib/json";
 
@@ -49,10 +49,11 @@ export default function EditPostPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [savedFormData, setSavedFormData] = useState(formData);
 
   useEffect(() => {
     if (post) {
-      setFormData({
+      const nextFormData = {
         title: post.title,
         metaTitle: post.metaTitle,
         metaDesc: post.metaDesc,
@@ -61,7 +62,10 @@ export default function EditPostPage() {
         imageUrl: post.imageUrl || "",
         imageCredit: post.imageCredit || "",
         imageCreditUrl: post.imageCreditUrl || "",
-      });
+      };
+
+      setFormData(nextFormData);
+      setSavedFormData(nextFormData);
     }
   }, [post]);
 
@@ -120,17 +124,27 @@ export default function EditPostPage() {
   const handleSave = async (statusOverride?: "draft" | "published") => {
     setIsSaving(true);
     try {
+      const nextFormData = {
+        ...formData,
+        ...(statusOverride ? { status: statusOverride } : {}),
+      };
+
       await updatePost({
         postId: post._id,
-        ...formData,
-        ...(statusOverride ? { status: statusOverride } : {})
+        ...nextFormData,
       });
+      setSavedFormData(formData);
       toast.success("Post saved!");
     } catch (e: unknown) {
       toast.error((e as Error).message || "Failed to save post");
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleUndoChanges = () => {
+    setFormData(savedFormData);
+    toast.success("Reverted unsaved changes");
   };
 
   const handlePublish = async () => {
@@ -206,12 +220,16 @@ export default function EditPostPage() {
         </div>
         
         <div className="flex items-center gap-3">
+          <Button variant="outline" onClick={handleUndoChanges}>
+            <RotateCcw className="w-4 h-4 mr-2" /> Undo Changes
+          </Button>
+
           <Button variant="outline" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={handleDelete}>
             <Trash2 className="w-4 h-4 mr-2" /> Delete
           </Button>
           
           <Button variant="outline" onClick={() => handleSave()} disabled={isSaving}>
-            <Save className="w-4 h-4 mr-2" /> Save Draft
+            <Save className="w-4 h-4 mr-2" /> Save Changes
           </Button>
 
           {post.status !== "published" && (

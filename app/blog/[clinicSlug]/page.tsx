@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { Metadata } from "next";
+import SharePostButton from "@/components/share-post-button";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
@@ -24,9 +25,12 @@ export default async function BlogIndexPage({ params, searchParams }: { params: 
   }
 
   // Determine if we are on a custom domain to format links correctly
-  const host = headers().get("host") || "";
+  const requestHeaders = headers();
+  const host = requestHeaders.get("host") || "";
+  const protocol = requestHeaders.get("x-forwarded-proto") || "https";
   const isCustomDomain = !host.includes("localhost") && !host.includes("vercel.app") && !host.includes("vercel.pub");
   const basePath = isCustomDomain ? "" : `/blog/${clinic.slug}`;
+  const siteOrigin = `${protocol}://${host}`;
 
   const posts = await convex.query(api.posts.getPublishedByClinic, { clinicId: clinic._id });
   const sortedPosts = posts.sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0));
@@ -37,25 +41,24 @@ export default async function BlogIndexPage({ params, searchParams }: { params: 
   const paginatedPosts = sortedPosts.slice((page - 1) * limit, page * limit);
   const logoUrl = clinic.logoUrl || "https://titaniumsmiles.in/logo.svg";
 
-  console.log("[blog.index] clinic logo state", {
-    clinicId: clinic._id,
-    slug: clinic.slug,
-    storedLogoUrl: clinic.logoUrl,
-    resolvedLogoUrl: logoUrl,
-  });
+ 
 
   return (
     <div className="min-h-screen bg-neutral-50 font-sans">
-      <header className="bg-white border-b border-neutral-200 py-12 text-center">
+      <header className="bg-white border-b border-neutral-200 py-12">
         <div className="max-w-4xl mx-auto px-4">
-          {logoUrl && (
-            <div className="flex justify-center mb-6">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={logoUrl} alt={`${clinic.name} Logo`} className="h-20 w-auto object-contain" />
+          <div className="flex flex-col items-center gap-5 text-center sm:flex-row sm:justify-center sm:text-left">
+            {logoUrl && (
+              <div className="flex-shrink-0 rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={logoUrl} alt={`${clinic.name} Logo`} className="h-16 w-16 sm:h-20 sm:w-20 object-contain" />
+              </div>
+            )}
+            <div>
+              <h1 className="text-4xl font-bold text-neutral-900 tracking-tight mb-2">{clinic.name}</h1>
+              <p className="text-xl text-neutral-500">Dental insights and advice from {clinic.city}</p>
             </div>
-          )}
-          <h1 className="text-4xl font-bold text-neutral-900 tracking-tight mb-2">{clinic.name}</h1>
-          <p className="text-xl text-neutral-500">Dental insights and advice from {clinic.city}</p>
+          </div>
         </div>
       </header>
 
@@ -65,33 +68,36 @@ export default async function BlogIndexPage({ params, searchParams }: { params: 
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {paginatedPosts.map((post) => (
-              <Link key={post._id} href={`${basePath}/${post.slug}`} className="group block h-full">
-                <article className="bg-white rounded-xl overflow-hidden border border-neutral-200 h-full flex flex-col transition-shadow hover:shadow-lg">
+              <article key={post._id} className="group relative h-full overflow-hidden rounded-xl border border-neutral-200 bg-white transition-shadow hover:shadow-lg">
+                <div className="absolute right-3 top-3 z-10">
+                  <SharePostButton url={`${siteOrigin}${basePath}/${post.slug}`} title={post.title} />
+                </div>
+                <Link href={`${basePath}/${post.slug}`} className="flex h-full flex-col">
                   <div className="h-48 overflow-hidden relative bg-neutral-100">
                     <img 
                       src={post.imageUrl} 
                       alt={post.title} 
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
                   </div>
-                  <div className="p-6 flex flex-col flex-1">
-                    <div className="flex items-center gap-3 text-sm text-neutral-500 mb-3">
+                  <div className="flex flex-1 flex-col p-6">
+                    <div className="mb-3 flex items-center gap-3 text-sm text-neutral-500">
                       <time dateTime={new Date(post.publishedAt || post.createdAt).toISOString()}>
                         {new Date(post.publishedAt || post.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
                       </time>
                       <span>•</span>
                       <span>{post.readingTime} min read</span>
                     </div>
-                    <h2 className="text-xl font-bold text-neutral-900 mb-3 group-hover:text-blue-600 transition-colors line-clamp-2">
+                    <h2 className="mb-3 line-clamp-2 text-xl font-bold text-neutral-900 transition-colors group-hover:text-blue-600">
                       {post.title}
                     </h2>
-                    <p className="text-neutral-600 line-clamp-3 mb-4 flex-1">
+                    <p className="mb-4 line-clamp-3 flex-1 text-neutral-600">
                       {post.excerpt}
                     </p>
-                    <div className="text-blue-600 font-medium text-sm">Read Article →</div>
+                    <div className="text-sm font-medium text-blue-600">Read Article →</div>
                   </div>
-                </article>
-              </Link>
+                </Link>
+              </article>
             ))}
           </div>
         )}
