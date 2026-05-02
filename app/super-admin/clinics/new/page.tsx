@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +17,7 @@ import { ArrowLeft, Upload } from "lucide-react";
 export default function NewClinicPage() {
   const router = useRouter();
   const createClinic = useMutation(api.clinics.create);
+  const updateClinic = useMutation(api.clinics.update);
   const seedKeywords = useMutation(api.keywords.seedDefaultKeywords);
   const generateUploadUrl = useMutation(api.posts.generateUploadUrl);
 
@@ -82,6 +84,8 @@ export default function NewClinicPage() {
 
       // 3. Upload logo if provided
       let finalLogoUrl: string | undefined = undefined;
+      let finalLogoStorageId: Id<"_storage"> | undefined = undefined;
+      
       if (logoInputMode === "url" && logoUrl.trim()) {
         finalLogoUrl = logoUrl.trim();
       } else if (logoInputMode === "file" && logoFile) {
@@ -93,7 +97,7 @@ export default function NewClinicPage() {
             body: logoFile,
           });
           const { storageId } = await result.json();
-          finalLogoUrl = storageId;
+          finalLogoStorageId = storageId as Id<"_storage">;
         } catch (logoError) {
           console.error("Logo upload failed:", logoError);
           toast.warning("Logo upload failed, creating clinic without logo");
@@ -121,10 +125,22 @@ export default function NewClinicPage() {
         } : {}),
         autoPostFacebook: formData.autoPostFacebook,
         autoPostInstagram: formData.autoPostInstagram,
-        ...(finalLogoUrl ? { logoUrl: finalLogoUrl } : {}),
       });
 
-      // 5. Seed Keywords
+      // 5. Update clinic with logo if provided
+      if (finalLogoUrl) {
+        await updateClinic({
+          clinicId,
+          logoUrl: finalLogoUrl,
+        });
+      } else if (finalLogoStorageId) {
+        await updateClinic({
+          clinicId,
+          logoStorageId: finalLogoStorageId,
+        });
+      }
+
+      // 6. Seed Keywords
       await seedKeywords({
         clinicId,
         city: formData.city,

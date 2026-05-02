@@ -185,7 +185,7 @@ export default function ClinicDetailsPage() {
       
       await updateClinic({
         clinicId: clinic._id,
-        logoUrl: storageId,
+        logoStorageId: storageId,
       });
       
       toast.success("Logo uploaded successfully!");

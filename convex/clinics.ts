@@ -103,14 +103,22 @@ export const update = mutation({
     autoPostFacebook: v.optional(v.boolean()),
     autoPostInstagram: v.optional(v.boolean()),
     logoUrl: v.optional(v.string()),
+    logoStorageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
-    const { clinicId, wordpressAppPassword, ...updates } = args;
+    const { clinicId, wordpressAppPassword, logoStorageId, ...updates } = args;
 
     const toUpdate: Record<string, string | number | boolean | string[] | undefined> = {};
     for (const [key, value] of Object.entries(updates)) {
       if (value !== undefined) {
         toUpdate[key] = value;
+      }
+    }
+
+    if (logoStorageId) {
+      const url = await ctx.storage.getUrl(logoStorageId);
+      if (url) {
+        toUpdate.logoUrl = url;
       }
     }
 
