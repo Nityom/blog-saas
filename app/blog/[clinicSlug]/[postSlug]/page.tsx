@@ -44,6 +44,16 @@ export default async function BlogPostPage({ params }: { params: { clinicSlug: s
   const host = headers().get("host") || "";
   const isCustomDomain = !host.includes("localhost") && !host.includes("vercel.app") && !host.includes("vercel.pub");
   const basePath = isCustomDomain ? "" : `/blog/${clinic.slug}`;
+  const logoUrl = clinic.logoUrl || "https://titaniumsmiles.in/logo.svg";
+
+  console.log("[blog.post] clinic logo state", {
+    clinicId: clinic._id,
+    slug: clinic.slug,
+    storedLogoUrl: clinic.logoUrl,
+    resolvedLogoUrl: logoUrl,
+    postId: post._id,
+    postSlug: post.slug,
+  });
 
   // Get related posts (3 posts from same clinic, different slug, preferably same keyword)
   const allPosts = await convex.query(api.posts.getPublishedByClinic, { clinicId: clinic._id });
@@ -71,10 +81,10 @@ export default async function BlogPostPage({ params }: { params: { clinicSlug: s
         <div className="max-w-4xl mx-auto px-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-4">
-              {clinic.logoUrl && (
+              {logoUrl && (
                 <div className="flex-shrink-0">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={clinic.logoUrl} alt={`${clinic.name} Logo`} className="h-12 w-auto object-contain" />
+                  <img src={logoUrl} alt={`${clinic.name} Logo`} className="h-12 w-auto object-contain" />
                 </div>
               )}
               <div>

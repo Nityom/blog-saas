@@ -119,6 +119,13 @@ export const update = mutation({
         toUpdate.wordpressAppPasswordEncrypted = await encrypt(wordpressAppPassword);
       }
     }
+
+    if (toUpdate.logoUrl !== undefined) {
+      console.log("[clinics.update] logoUrl update", {
+        clinicId,
+        logoUrl: toUpdate.logoUrl,
+      });
+    }
     
     await ctx.db.patch(clinicId, toUpdate);
   },
