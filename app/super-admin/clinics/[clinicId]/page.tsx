@@ -183,9 +183,21 @@ export default function ClinicDetailsPage() {
       });
       const { storageId } = await result.json();
       
+      // Get the URL from the storageId
+      const logoUrlResponse = await fetch("/api/logo-url", {
+        method: "POST",
+        body: JSON.stringify({ storageId }),
+      });
+      
+      if (!logoUrlResponse.ok) {
+        throw new Error("Failed to get logo URL");
+      }
+      
+      const { url: logoUrl } = await logoUrlResponse.json();
+      
       await updateClinic({
         clinicId: clinic._id,
-        logoStorageId: storageId,
+        logoUrl,
       });
       
       toast.success("Logo uploaded successfully!");
