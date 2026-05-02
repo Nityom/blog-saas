@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { ArrowLeft, Save, Globe, Trash2, AlertTriangle, CheckCircle2, Upload } from "lucide-react";
 import dynamic from 'next/dynamic';
+import { parseJsonFromText } from "@/lib/json";
 
 const MDEditor = dynamic(() => import('@uiw/react-md-editor'), { ssr: false });
 
@@ -26,9 +27,12 @@ export default function EditPostPage() {
 
   const post = useQuery(api.posts.getById, { postId: postId as Id<"posts"> });
   const clinic = useQuery(api.clinics.getById, { clinicId: clinicId as Id<"clinics"> });
+  const socialPosts = useQuery(api.socialOps.getByPost, { postId: postId as Id<"posts"> });
   const updatePost = useMutation(api.posts.update);
   const deletePost = useMutation(api.posts.remove);
   const publishPost = useAction(api.integrations.publishPost);
+  const postToFacebook = useAction(api.social.postToFacebook);
+  const postToInstagram = useAction(api.social.postToInstagram);
   const generateUploadUrl = useMutation(api.posts.generateUploadUrl);
 
   const [formData, setFormData] = useState({
@@ -61,7 +65,7 @@ export default function EditPostPage() {
     }
   }, [post]);
 
-  if (post === undefined || clinic === undefined) {
+  if (post === undefined || clinic === undefined || socialPosts === undefined) {
     return <div className="p-8 text-neutral-400">Loading...</div>;
   }
 
@@ -70,10 +74,20 @@ export default function EditPostPage() {
   }
 
   let safetyReport = { safe: true, riskLevel: "low", flags: [], suggestedEdits: [] };
+  let socialContentData: {
+    facebook?: { postText?: string; hashtags?: string[] };
+    instagram?: { storyText?: string; caption?: string; hashtags?: string[] };
+  } | null = null;
   try {
-    if (post.safetyReport) safetyReport = JSON.parse(post.safetyReport);
+    if (post.safetyReport) safetyReport = parseJsonFromText(post.safetyReport);
   } catch {
     // Ignore parse errors
+  }
+
+  try {
+    if (post.socialContent) socialContentData = parseJsonFromText(post.socialContent);
+  } catch {
+    socialContentData = null;
   }
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -141,6 +155,22 @@ export default function EditPostPage() {
     if (confirm("Delete this post? This cannot be undone.")) {
       await deletePost({ postId: post._id });
       router.push(`/clinic/${clinicId}/posts`);
+    }
+  };
+
+  const latestFacebook = socialPosts.find((entry) => entry.platform === "facebook");
+  const latestInstagram = socialPosts.find((entry) => entry.platform === "instagram");
+
+  const handleManualPost = async (platform: "facebook" | "instagram") => {
+    try {
+      if (platform === "facebook") {
+        await postToFacebook({ clinicId: clinic._id, postId: post._id });
+      } else {
+        await postToInstagram({ clinicId: clinic._id, postId: post._id });
+      }
+      toast.success(`Queued ${platform} post`);
+    } catch (error: unknown) {
+      toast.error((error as Error).message || `Failed to post to ${platform}`);
     }
   };
 
@@ -284,6 +314,68 @@ export default function EditPostPage() {
               </div>
             </CardContent>
           </Card>
+
+          {post.socialContent && (
+            <Card className="bg-white border-neutral-200">
+              <CardHeader>
+                <CardTitle>Social Preview</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 text-sm">
+                {latestFacebook && (
+                  <div className="rounded-lg border border-neutral-200 p-4 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 font-medium text-neutral-900">Facebook</div>
+                      <Badge variant="outline" className={
+                        latestFacebook.status === "posted" ? "text-green-700 bg-green-50 border-green-200" :
+                        latestFacebook.status === "failed" ? "text-red-700 bg-red-50 border-red-200" :
+                        "text-neutral-700 bg-neutral-100 border-neutral-200"
+                      }>
+                        {latestFacebook.status}
+                      </Badge>
+                    </div>
+                    <p className="text-neutral-700 whitespace-pre-line">{socialContentData?.facebook?.postText}</p>
+                    <p className="text-xs text-neutral-500">{socialContentData?.facebook?.hashtags?.join(" ")}</p>
+                    {latestFacebook.status === "failed" && (
+                      <Button variant="outline" size="sm" onClick={() => handleManualPost("facebook")}>Retry Post</Button>
+                    )}
+                    {latestFacebook.status === "posted" && latestFacebook.platformPostId && (
+                      <a href={`https://www.facebook.com/${clinic.metaPageId}/posts/${latestFacebook.platformPostId}`} target="_blank" rel="noreferrer">
+                        <Button variant="ghost" size="sm" className="text-blue-600 hover:bg-blue-50">View on Facebook</Button>
+                      </a>
+                    )}
+                  </div>
+                )}
+
+                {latestInstagram && (
+                  <div className="rounded-lg border border-neutral-200 p-4 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 font-medium text-neutral-900">Instagram Story</div>
+                      <Badge variant="outline" className={
+                        latestInstagram.status === "posted" ? "text-green-700 bg-green-50 border-green-200" :
+                        latestInstagram.status === "failed" ? "text-red-700 bg-red-50 border-red-200" :
+                        "text-neutral-700 bg-neutral-100 border-neutral-200"
+                      }>
+                        {latestInstagram.status}
+                      </Badge>
+                    </div>
+                    <p className="text-neutral-700 font-semibold text-base whitespace-pre-line">{socialContentData?.instagram?.storyText}</p>
+                    <p className="text-neutral-600 whitespace-pre-line">{socialContentData?.instagram?.caption}</p>
+                    <p className="text-xs text-neutral-500">{socialContentData?.instagram?.hashtags?.join(" ")}</p>
+                    {latestInstagram.status === "failed" && (
+                      <Button variant="outline" size="sm" onClick={() => handleManualPost("instagram")}>Retry</Button>
+                    )}
+                  </div>
+                )}
+
+                {(!latestFacebook || latestFacebook.status !== "posted") && (
+                  <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white" onClick={() => handleManualPost("facebook")}>Post to Facebook Now</Button>
+                )}
+                {(!latestInstagram || latestInstagram.status !== "posted") && (
+                  <Button variant="outline" className="w-full" onClick={() => handleManualPost("instagram")}>Post to Instagram Now</Button>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           <Card className="bg-white border-neutral-200">
             <CardHeader className="flex flex-row items-center justify-between pb-2">

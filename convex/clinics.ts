@@ -56,9 +56,12 @@ export const create = mutation({
     wordpressUrl: v.optional(v.string()),
     wordpressAppPassword: v.optional(v.string()),
     customDomain: v.optional(v.string()),
+    autoPostFacebook: v.optional(v.boolean()),
+    autoPostInstagram: v.optional(v.boolean()),
+    logoUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    let encryptedPass = undefined;
+    let encryptedPass: string | undefined = undefined;
     if (args.wordpressAppPassword) {
       encryptedPass = await encrypt(args.wordpressAppPassword);
     }
@@ -67,6 +70,8 @@ export const create = mutation({
 
     const clinicId = await ctx.db.insert("clinics", {
       ...rest,
+      autoPostFacebook: args.autoPostFacebook ?? false,
+      autoPostInstagram: args.autoPostInstagram ?? false,
       wordpressAppPasswordEncrypted: encryptedPass,
       createdAt: Date.now(),
     });
@@ -90,16 +95,60 @@ export const update = mutation({
     wordpressUrl: v.optional(v.string()),
     wordpressAppPassword: v.optional(v.string()),
     customDomain: v.optional(v.string()),
+    metaPageId: v.optional(v.string()),
+    metaPageName: v.optional(v.string()),
+    metaPageAccessTokenEncrypted: v.optional(v.string()),
+    metaTokenExpiresAt: v.optional(v.number()),
+    metaInstagramAccountId: v.optional(v.string()),
+    autoPostFacebook: v.optional(v.boolean()),
+    autoPostInstagram: v.optional(v.boolean()),
+    logoUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { clinicId, wordpressAppPassword, ...updates } = args;
-    
-    let toUpdate: any = { ...updates };
+
+    const toUpdate: Record<string, string | number | boolean | string[] | undefined> = {};
+    for (const [key, value] of Object.entries(updates)) {
+      if (value !== undefined) {
+        toUpdate[key] = value;
+      }
+    }
+
     if (wordpressAppPassword !== undefined) {
-      toUpdate.wordpressAppPasswordEncrypted = wordpressAppPassword ? await encrypt(wordpressAppPassword) : undefined;
+      if (wordpressAppPassword) {
+        toUpdate.wordpressAppPasswordEncrypted = await encrypt(wordpressAppPassword);
+      }
     }
     
     await ctx.db.patch(clinicId, toUpdate);
+  },
+});
+
+export const clearMetaConnection = mutation({
+  args: { clinicId: v.id("clinics") },
+  handler: async (ctx, args) => {
+    const clinic = await ctx.db.get(args.clinicId);
+    if (!clinic) {
+      throw new Error("Clinic not found");
+    }
+
+    const {
+      _id,
+      _creationTime,
+      metaPageId,
+      metaPageName,
+      metaPageAccessTokenEncrypted,
+      metaTokenExpiresAt,
+      metaInstagramAccountId,
+      autoPostFacebook,
+      autoPostInstagram,
+      ...doc
+    } = clinic;
+    await ctx.db.replace(args.clinicId, {
+      ...doc,
+      autoPostFacebook: false,
+      autoPostInstagram: false,
+    });
   },
 });
 

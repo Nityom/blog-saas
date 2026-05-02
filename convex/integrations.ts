@@ -1,6 +1,6 @@
 import { action, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { decrypt } from "../lib/encryption";
 import { markdownToHtml } from "../lib/markdown";
 
@@ -59,6 +59,10 @@ export const publishPost = action({
           postId: post._id,
           method: clinic.integrationMethod,
           status: "success",
+        });
+        await ctx.runAction(api.social.postAllSocial, {
+          clinicId: clinic._id,
+          postId: post._id,
         });
         return { success: true };
       }
@@ -133,6 +137,11 @@ export const publishPost = action({
           postId: post._id,
           method: "wordpress",
           status: "success",
+        });
+
+        await ctx.runAction(api.social.postAllSocial, {
+          clinicId: clinic._id,
+          postId: post._id,
         });
 
         return { success: true };

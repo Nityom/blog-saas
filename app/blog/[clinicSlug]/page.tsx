@@ -40,6 +40,12 @@ export default async function BlogIndexPage({ params, searchParams }: { params: 
     <div className="min-h-screen bg-neutral-50 font-sans">
       <header className="bg-white border-b border-neutral-200 py-12 text-center">
         <div className="max-w-4xl mx-auto px-4">
+          {clinic.logoUrl && (
+            <div className="flex justify-center mb-6">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={clinic.logoUrl} alt={`${clinic.name} Logo`} className="h-20 w-auto object-contain" />
+            </div>
+          )}
           <h1 className="text-4xl font-bold text-neutral-900 tracking-tight mb-2">{clinic.name}</h1>
           <p className="text-xl text-neutral-500">Dental insights and advice from {clinic.city}</p>
         </div>

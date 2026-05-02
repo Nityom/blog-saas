@@ -42,9 +42,14 @@ export default function ClinicPostsPage() {
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight text-neutral-900">Posts</h2>
-        <p className="text-neutral-500">Manage your generated blog content.</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight text-neutral-900">Posts</h2>
+          <p className="text-neutral-500">Manage your generated blog content.</p>
+        </div>
+        <Link href={`/clinic/${clinicId}/posts/custom`}>
+          <Button className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm">+ Custom Post</Button>
+        </Link>
       </div>
 
       <Tabs defaultValue="all" value={filter} onValueChange={setFilter} className="w-full flex-col">

@@ -16,6 +16,8 @@ import type * as generationHelpers from "../generationHelpers.js";
 import type * as integrations from "../integrations.js";
 import type * as keywords from "../keywords.js";
 import type * as posts from "../posts.js";
+import type * as social from "../social.js";
+import type * as socialOps from "../socialOps.js";
 
 import type {
   ApiFromModules,
@@ -32,6 +34,8 @@ declare const fullApi: ApiFromModules<{
   integrations: typeof integrations;
   keywords: typeof keywords;
   posts: typeof posts;
+  social: typeof social;
+  socialOps: typeof socialOps;
 }>;
 
 /**

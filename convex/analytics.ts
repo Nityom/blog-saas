@@ -69,12 +69,25 @@ export const recordView = mutation({
 });
 
 export const getTopPerformingPosts = query({
-  args: { clinicId: v.id("clinics") },
+  args: { 
+    clinicId: v.id("clinics"),
+    timeRange: v.optional(v.union(v.literal("weekly"), v.literal("monthly"), v.literal("yearly"), v.literal("overall"))),
+  },
   handler: async (ctx, args) => {
-    const records = await ctx.db
+    let records = await ctx.db
       .query("analytics")
       .withIndex("by_clinic", (q) => q.eq("clinicId", args.clinicId))
       .collect();
+      
+    if (args.timeRange && args.timeRange !== "overall") {
+      const offsets = {
+        weekly: 7 * 24 * 60 * 60 * 1000,
+        monthly: 30 * 24 * 60 * 60 * 1000,
+        yearly: 365 * 24 * 60 * 60 * 1000,
+      };
+      const cutoff = Date.now() - offsets[args.timeRange];
+      records = records.filter(r => r.recordedAt >= cutoff);
+    }
     
     // Sort by views DESC and return top 5
     records.sort((a, b) => b.views - a.views);
@@ -83,13 +96,26 @@ export const getTopPerformingPosts = query({
 });
 
 export const getAnalyticsOverTime = query({
-  args: { clinicId: v.id("clinics") },
+  args: { 
+    clinicId: v.id("clinics"),
+    timeRange: v.optional(v.union(v.literal("weekly"), v.literal("monthly"), v.literal("yearly"), v.literal("overall"))),
+  },
   handler: async (ctx, args) => {
-    // We can just return all records or do more complex aggregations.
-    // For simplicity, we return the raw records so frontend can chart them.
-    return await ctx.db
+    let records = await ctx.db
       .query("analytics")
       .withIndex("by_clinic", (q) => q.eq("clinicId", args.clinicId))
       .collect();
+
+    if (args.timeRange && args.timeRange !== "overall") {
+      const offsets = {
+        weekly: 7 * 24 * 60 * 60 * 1000,
+        monthly: 30 * 24 * 60 * 60 * 1000,
+        yearly: 365 * 24 * 60 * 60 * 1000,
+      };
+      const cutoff = Date.now() - offsets[args.timeRange];
+      records = records.filter(r => r.recordedAt >= cutoff);
+    }
+
+    return records;
   },
 });

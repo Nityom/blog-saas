@@ -1,11 +1,13 @@
 import { action, internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { generateText } from "../lib/ai";
+import { parseJsonFromText } from "../lib/json";
 import { fetchPexelsImage } from "../lib/pexels";
 import { generateSlug, generateSchemaMarkup, addInternalLinks } from "../lib/seo";
 import { selectNextKeyword } from "../lib/keywords";
 import { markdownToHtml, getWordCount, truncateToSentence } from "../lib/markdown";
 import { internal, api } from "./_generated/api";
+import { Doc, Id } from "./_generated/dataModel";
 
 // Helper mutation to prepare post and update keyword
 export const prepareGeneration = internalMutation({
@@ -110,6 +112,7 @@ export const finalizeGeneration = internalMutation({
       imageUrl: args.postData.imageUrl,
       imageCredit: args.postData.imageCredit,
       imageCreditUrl: args.postData.imageCreditUrl,
+      socialContent: args.postData.socialContent,
       safetyReport: args.postData.safetyReport,
       status: args.status,
       readingTime: args.postData.readingTime,
@@ -218,13 +221,14 @@ Then write the post:
       const metaDesc = metaDescMatch ? metaDescMatch[1] : `Learn about ${keyword.term} at ${clinic.name}.`;
       const excerpt = excerptMatch ? excerptMatch[1] : truncateToSentence(content, 160);
       const readingTime = Math.ceil(getWordCount(content) / 200);
+      let socialContentJson = "{}";
 
       let passesCompleted = 1;
       let finalStatus: "published" | "flagged" = "published";
       let safetyReportJson = "{}";
 
-      // Parallel tasks: Pexels and Pass 2 (if not lowRisk)
-      const tasks: Promise<any>[] = [fetchPexelsImage(keyword.term)];
+        // Parallel tasks: Pexels, Pass 2, and Pass 3 social content.
+        const tasks: Promise<any>[] = [fetchPexelsImage(keyword.term)];
       
       if (!keyword.lowRisk) {
         tasks.push((async () => {
@@ -244,13 +248,65 @@ Flag if post: makes unverified medical claims, promises specific results, could 
           
           try {
             const safetyRes = await generateText(systemPrompt2, userPrompt2, 300);
-            return JSON.parse(safetyRes);
+            return parseJsonFromText(safetyRes);
           } catch (e) {
             console.error("Safety check failed", e);
             return { safe: false, riskLevel: "high", flags: ["Safety check failed to parse"], suggestedEdits: [] };
           }
         })());
       }
+
+      tasks.push((async () => {
+        const systemPrompt3 = "You are a dental clinic social media manager. Return ONLY valid JSON. No markdown. No explanation.";
+        const userPrompt3 = `Based on this blog post create social media content.
+
+Blog title: ${title}
+Blog excerpt: ${excerpt}
+Clinic name: ${clinic.name}
+City: ${clinic.city}
+Booking URL: ${clinic.bookingUrl}
+Tone: ${clinic.tone}
+
+Return JSON exactly:
+{
+  "facebook": {
+    "postText": string,
+    "hashtags": string[]
+  },
+  "instagram": {
+    "storyText": string,
+    "caption": string,
+    "hashtags": string[]
+  }
+}
+
+Rules:
+- facebook.postText: 150-200 words, engaging, end with booking URL
+- facebook.hashtags: 3-5 relevant dental hashtags
+- instagram.storyText: max 80 chars, bold hook line
+- instagram.caption: max 150 chars with booking URL
+- instagram.hashtags: 8-10 dental + local hashtags including #${clinic.city}Dentist #DentalCare #${keyword.term.replace(/\s+/g, "")}`;
+
+        const fallback = {
+          facebook: {
+            postText: `${title}\n\n${excerpt}\n\nBook here: ${clinic.bookingUrl}`,
+            hashtags: ["#DentalCare", "#HealthySmile", "#Dentist"],
+          },
+          instagram: {
+            storyText: `Did you see this dental tip? 🦷`,
+            caption: `${title} - book now ${clinic.bookingUrl}`,
+            hashtags: ["#DentalCare", `#${clinic.city}Dentist`, "#HealthySmile"],
+          },
+        };
+
+        try {
+          const socialRes = await generateText(systemPrompt3, userPrompt3, 400, 2, "anthropic/claude-haiku-4-5");
+          return parseJsonFromText(socialRes);
+        } catch (e) {
+          console.error("Social content generation failed", e);
+          return fallback;
+        }
+      })());
 
       const results = await Promise.allSettled(tasks);
       
@@ -266,6 +322,11 @@ Flag if post: makes unverified medical claims, promises specific results, could 
             finalStatus = "flagged";
           }
         }
+      }
+
+      const socialSettled = results[results.length - 1];
+      if (socialSettled.status === "fulfilled") {
+        socialContentJson = JSON.stringify(socialSettled.value);
       }
 
       // Finalize
@@ -284,6 +345,7 @@ Flag if post: makes unverified medical claims, promises specific results, could 
           imageCredit: pexelsImage.imageCredit,
           imageCreditUrl: pexelsImage.imageCreditUrl,
           safetyReport: safetyReportJson,
+          socialContent: socialContentJson,
         },
         status: finalStatus,
         logData: {
@@ -308,21 +370,144 @@ Flag if post: makes unverified medical claims, promises specific results, could 
 export const runAll = internalAction({
   handler: async (ctx) => {
     // 1. Query all clinics where active=true
-    const activeClinics = await ctx.runQuery(api.clinics.getActive);
+    const activeClinics: Doc<"clinics">[] = await ctx.runQuery(api.clinics.getActive);
     
     // 2. Run full generation flow for each clinic in parallel
-    const promises = activeClinics.map(clinic => 
+    const promises = activeClinics.map((clinic: Doc<"clinics">) => 
       ctx.runAction(api.generation.generatePost, { clinicId: clinic._id })
     );
 
-    const results = await Promise.allSettled(promises);
+    const results: PromiseSettledResult<unknown>[] = await Promise.allSettled(promises);
 
     // 3 & 4. Log warnings and errors
-    results.forEach((result, index) => {
+    results.forEach((result: PromiseSettledResult<unknown>, index: number) => {
       const clinic = activeClinics[index];
       if (result.status === "rejected") {
         console.error(`Generation failed for clinic ${clinic.name}:`, result.reason);
       }
     });
   }
+});
+
+export const prepareCustomGeneration = internalMutation({
+  args: { clinicId: v.id("clinics"), prompt: v.string() },
+  handler: async (ctx, args): Promise<{ postId: Id<"posts">; keyword: Doc<"keywords"> }> => {
+    let keyword = await ctx.db
+      .query("keywords")
+      .withIndex("by_clinic", (q) => q.eq("clinicId", args.clinicId))
+      .filter((q) => q.eq(q.field("term"), "Custom Topic"))
+      .first();
+
+    if (!keyword) {
+      const keywordId = await ctx.db.insert("keywords", {
+        clinicId: args.clinicId,
+        term: "Custom Topic",
+        localVariant: "Custom Topic",
+        timesUsed: 0,
+        performanceScore: 0,
+        lowRisk: true,
+        paused: false,
+        createdAt: Date.now(),
+      });
+      keyword = await ctx.db.get(keywordId);
+    }
+
+    const postId = await ctx.db.insert("posts", {
+      clinicId: args.clinicId,
+      keywordId: keyword!._id,
+      title: "Generating Custom Post...",
+      slug: `custom-${Date.now()}`,
+      excerpt: "",
+      content: "",
+      metaTitle: "",
+      metaDesc: "",
+      imageUrl: "",
+      imageCredit: "",
+      imageCreditUrl: "",
+      safetyReport: "{}",
+      status: "generating",
+      readingTime: 0,
+      schemaMarkup: "",
+      createdAt: Date.now(),
+    });
+
+    return { postId, keyword: keyword! };
+  },
+});
+
+export const generateCustomPost = action({
+  args: { clinicId: v.id("clinics"), prompt: v.string() },
+  handler: async (ctx, args): Promise<Id<"posts"> | null> => {
+    const clinic = await ctx.runQuery(internal.generationHelpers.getClinic, { clinicId: args.clinicId });
+    if (!clinic) return null;
+
+    const prepResult = await ctx.runMutation(internal.generation.prepareCustomGeneration, { clinicId: args.clinicId, prompt: args.prompt });
+    if (!prepResult) return null;
+    const { postId, keyword } = prepResult;
+
+    try {
+      const systemPrompt1 = `You are an SEO dental content writer. Return ONLY markdown. No explanation.`;
+      const userPrompt1 = `Write a complete SEO-optimized blog post based on this prompt:
+Prompt: ${args.prompt}
+
+Clinic: ${clinic.name}
+Tone: ${clinic.tone}
+
+Include HTML comments at the top:
+<!-- metaTitle: ... -->
+<!-- metaDesc: ... -->
+<!-- excerpt: ... -->
+
+Use strict Markdown, blank lines between elements.`;
+
+      const draftOutput = await generateText(systemPrompt1, userPrompt1, 900);
+
+      const metaTitleMatch = draftOutput.match(/<!-- metaTitle:\s*(.*?)\s*-->/i);
+      const metaDescMatch = draftOutput.match(/<!-- metaDesc:\s*(.*?)\s*-->/i);
+      const excerptMatch = draftOutput.match(/<!-- excerpt:\s*(.*?)\s*-->/i);
+      
+      let content = draftOutput.replace(/<!--[\s\S]*?-->/g, "").trim();
+      const h1Match = content.match(/^#\s+(.*)/m);
+      const title = h1Match ? h1Match[1] : `Custom Post for ${clinic.name}`;
+
+      const metaTitle = metaTitleMatch ? metaTitleMatch[1] : title;
+      const metaDesc = metaDescMatch ? metaDescMatch[1] : `Learn more at ${clinic.name}.`;
+      const excerpt = excerptMatch ? excerptMatch[1] : truncateToSentence(content, 160);
+      const readingTime = Math.ceil(getWordCount(content) / 200);
+
+      await ctx.runMutation(internal.generation.finalizeGeneration, {
+        clinicId: args.clinicId,
+        postId: postId,
+        keywordId: keyword._id,
+        postData: {
+          title,
+          excerpt,
+          content,
+          metaTitle,
+          metaDesc,
+          readingTime,
+          imageUrl: "",
+          imageCredit: "",
+          imageCreditUrl: "",
+          safetyReport: "{}",
+          socialContent: "{}",
+        },
+        status: "draft",
+        logData: {
+          status: "success",
+          passesCompleted: 1,
+        }
+      });
+      return postId;
+    } catch (error: any) {
+      console.error(error);
+      await ctx.runMutation(internal.generation.logFailure, {
+        clinicId: args.clinicId,
+        keywordUsed: keyword.term,
+        errorMessage: error.message || "Unknown error",
+        postId,
+      });
+      throw error;
+    }
+  },
 });

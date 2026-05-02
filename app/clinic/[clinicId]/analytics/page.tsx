@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -9,14 +10,23 @@ import { BarChart3, TrendingUp, Eye } from "lucide-react";
 import Link from "next/link";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
+type TimeRange = "weekly" | "monthly" | "yearly" | "overall";
+
+type FilterType = "all" | "post" | "keyword";
+
 export default function ClinicAnalyticsPage() {
   const params = useParams();
   const clinicId = params.clinicId as string;
 
-  const topPosts = useQuery(api.analytics.getTopPerformingPosts, { clinicId: clinicId as Id<"clinics"> });
+  const [timeRange, setTimeRange] = useState<TimeRange>("overall");
+  const [filterType, setFilterType] = useState<FilterType>("all");
+  const [selectedPost, setSelectedPost] = useState<string>("");
+  const [selectedKeyword, setSelectedKeyword] = useState<string>("");
+
+  const topPosts = useQuery(api.analytics.getTopPerformingPosts, { clinicId: clinicId as Id<"clinics">, timeRange });
   const keywords = useQuery(api.keywords.getByClinic, { clinicId: clinicId as Id<"clinics"> });
   const allPosts = useQuery(api.posts.getPublishedByClinic, { clinicId: clinicId as Id<"clinics"> });
-  const analyticsData = useQuery(api.analytics.getAnalyticsOverTime, { clinicId: clinicId as Id<"clinics"> });
+  const analyticsData = useQuery(api.analytics.getAnalyticsOverTime, { clinicId: clinicId as Id<"clinics">, timeRange });
 
   if (topPosts === undefined || keywords === undefined || allPosts === undefined || analyticsData === undefined) {
     return <div className="p-8 text-neutral-400">Loading analytics...</div>;
@@ -29,7 +39,17 @@ export default function ClinicAnalyticsPage() {
   };
 
   // Combine analytics records by day (or just use raw data if there's one per day, but we'll mock dates if needed)
-  const chartData = analyticsData.map(record => ({
+  let filteredAnalytics = analyticsData;
+  if (filterType === "post" && selectedPost) {
+    filteredAnalytics = analyticsData.filter(r => r.postId === selectedPost);
+  } else if (filterType === "keyword" && selectedKeyword) {
+    filteredAnalytics = analyticsData.filter(r => {
+      const post = allPosts.find(p => p._id === r.postId);
+      return post && post.keywordId === selectedKeyword;
+    });
+  }
+
+  const chartData = filteredAnalytics.map(record => ({
     name: getPostTitle(record.postId).substring(0, 15) + "...",
     views: record.views,
     time: Math.round(record.avgTimeOnPage || 0)
@@ -48,9 +68,60 @@ export default function ClinicAnalyticsPage() {
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight text-neutral-900">Analytics</h2>
-        <p className="text-neutral-500">Track the performance of your generated content.</p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight text-neutral-900">Analytics</h2>
+          <p className="text-neutral-500">Track the performance of your generated content.</p>
+        </div>
+        <div className="flex flex-wrap gap-2 items-center">
+          <select
+            value={timeRange}
+            onChange={e => setTimeRange(e.target.value as TimeRange)}
+            className="bg-white border text-sm border-neutral-300 text-neutral-900 rounded-md px-3 py-2 cursor-pointer outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+          >
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+            <option value="yearly">Yearly</option>
+            <option value="overall">Overall</option>
+          </select>
+          <select
+            value={filterType}
+            onChange={e => {
+              setFilterType(e.target.value as FilterType);
+              setSelectedPost("");
+              setSelectedKeyword("");
+            }}
+            className="bg-white border text-sm border-neutral-300 text-neutral-900 rounded-md px-3 py-2 cursor-pointer outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+          >
+            <option value="all">All</option>
+            <option value="post">By Post</option>
+            <option value="keyword">By Keyword</option>
+          </select>
+          {filterType === "post" && (
+            <select
+              value={selectedPost}
+              onChange={e => setSelectedPost(e.target.value)}
+              className="bg-white border text-sm border-neutral-300 text-neutral-900 rounded-md px-3 py-2 cursor-pointer outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+            >
+              <option value="">Select Post</option>
+              {allPosts.map(post => (
+                <option key={post._id} value={post._id}>{post.title}</option>
+              ))}
+            </select>
+          )}
+          {filterType === "keyword" && (
+            <select
+              value={selectedKeyword}
+              onChange={e => setSelectedKeyword(e.target.value)}
+              className="bg-white border text-sm border-neutral-300 text-neutral-900 rounded-md px-3 py-2 cursor-pointer outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+            >
+              <option value="">Select Keyword</option>
+              {keywords.map(kw => (
+                <option key={kw._id} value={kw._id}>{kw.term}</option>
+              ))}
+            </select>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

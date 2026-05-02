@@ -9,12 +9,13 @@ export async function generateText(
   systemPrompt: string,
   userPrompt: string,
   maxTokens: number,
-  retries = 2
+  retries = 2,
+  model = "openai/gpt-4o-mini"
 ): Promise<string> {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const response = await client.chat.completions.create({
-        model: "openai/gpt-4o-mini",
+        model,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },

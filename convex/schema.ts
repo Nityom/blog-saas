@@ -16,6 +16,14 @@ export default defineSchema({
     wordpressUrl: v.optional(v.string()),
     wordpressAppPasswordEncrypted: v.optional(v.string()),
     customDomain: v.optional(v.string()),
+    metaPageId: v.optional(v.string()),
+    metaPageName: v.optional(v.string()),
+    metaPageAccessTokenEncrypted: v.optional(v.string()),
+    metaTokenExpiresAt: v.optional(v.number()),
+    metaInstagramAccountId: v.optional(v.string()),
+    autoPostFacebook: v.optional(v.boolean()),
+    autoPostInstagram: v.optional(v.boolean()),
+    logoUrl: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_slug", ["slug"])
@@ -47,6 +55,7 @@ export default defineSchema({
     imageUrl: v.string(),
     imageCredit: v.string(),
     imageCreditUrl: v.string(),
+    socialContent: v.optional(v.string()),
     safetyReport: v.string(), // JSON string
     status: v.union(
       v.literal("generating"),
@@ -90,4 +99,21 @@ export default defineSchema({
     response: v.optional(v.string()),
     runAt: v.number(),
   }).index("by_clinic", ["clinicId"]).index("by_post", ["postId"]),
+
+  socialPosts: defineTable({
+    clinicId: v.id("clinics"),
+    postId: v.id("posts"),
+    platform: v.union(v.literal("facebook"), v.literal("instagram")),
+    content: v.string(),
+    imageUrl: v.string(),
+    platformPostId: v.optional(v.string()),
+    status: v.union(v.literal("pending"), v.literal("posted"), v.literal("failed")),
+    errorMessage: v.optional(v.string()),
+    postedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_clinic", ["clinicId"])
+    .index("by_post", ["postId"])
+    .index("by_clinic_and_platform", ["clinicId", "platform"])
+    .index("by_clinic_and_status", ["clinicId", "status"]),
 });

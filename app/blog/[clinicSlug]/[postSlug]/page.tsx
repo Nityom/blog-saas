@@ -67,14 +67,27 @@ export default async function BlogPostPage({ params }: { params: { clinicSlug: s
         dangerouslySetInnerHTML={{ __html: post.schemaMarkup || "{}" }}
       />
 
-      <header className="py-6 border-b border-neutral-200">
-        <div className="max-w-4xl mx-auto px-4 flex justify-between items-center">
-          <Link href={`${basePath || '/'}`} className="text-xl font-bold tracking-tight hover:text-blue-600 transition-colors">
-            {clinic.name} Blog
-          </Link>
-          <a href={clinic.bookingUrl} target="_blank" className="text-sm font-medium bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
-            Book Appointment
-          </a>
+      <header className="py-8 border-b border-neutral-200 bg-white">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              {clinic.logoUrl && (
+                <div className="flex-shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={clinic.logoUrl} alt={`${clinic.name} Logo`} className="h-12 w-auto object-contain" />
+                </div>
+              )}
+              <div>
+                <Link href={`${basePath || '/'}`} className="text-xl font-bold tracking-tight text-neutral-900 hover:text-blue-600 transition-colors block">
+                  {clinic.name} Blog
+                </Link>
+                <p className="text-sm text-neutral-500">{clinic.city}</p>
+              </div>
+            </div>
+            <a href={clinic.bookingUrl} target="_blank" className="text-sm font-medium bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
+              Book Appointment
+            </a>
+          </div>
         </div>
       </header>
 

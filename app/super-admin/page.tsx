@@ -9,13 +9,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 export default function SuperAdminDashboard() {
-  const clinics = useQuery(api.clinics.getAll);
+  const clinics = useQuery(api.socialOps.getAdminOverview);
 
   if (clinics === undefined) {
     return <div className="p-8 text-neutral-400">Loading dashboard...</div>;
   }
 
   const activeClinicsCount = clinics.filter(c => c.active).length;
+  const expiredMetaCount = clinics.filter(c => c.tokenExpired).length;
+  const failedSocialTodayCount = clinics.reduce((count, clinic) => count + clinic.failedTodayCount, 0);
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-8">
@@ -46,7 +48,26 @@ export default function SuperAdminDashboard() {
             <CardTitle className="text-sm font-medium text-neutral-500">Action Required</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-red-500">0</div>
+            <div className="text-3xl font-bold text-red-500">{expiredMetaCount + failedSocialTodayCount}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card className="bg-red-50 border-red-200 text-neutral-900 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-red-700">Expired Meta Tokens</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-700">{expiredMetaCount}</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-amber-50 border-amber-200 text-neutral-900 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-amber-700">Failed Social Posts Today</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-amber-700">{failedSocialTodayCount}</div>
           </CardContent>
         </Card>
       </div>
@@ -66,6 +87,7 @@ export default function SuperAdminDashboard() {
                 <TableHead className="text-neutral-500 font-medium h-10">Name</TableHead>
                 <TableHead className="text-neutral-500 font-medium h-10">City</TableHead>
                 <TableHead className="text-neutral-500 font-medium h-10">Integration</TableHead>
+                <TableHead className="text-neutral-500 font-medium h-10">Social</TableHead>
                 <TableHead className="text-neutral-500 font-medium h-10">Status</TableHead>
                 <TableHead className="text-right text-neutral-500 font-medium h-10">Actions</TableHead>
               </TableRow>
@@ -76,6 +98,7 @@ export default function SuperAdminDashboard() {
                   <TableCell className="font-medium text-neutral-900">{clinic.name}</TableCell>
                   <TableCell className="text-neutral-600">{clinic.city}</TableCell>
                   <TableCell className="text-neutral-600 capitalize">{clinic.integrationMethod}</TableCell>
+                  <TableCell className="text-neutral-600">{clinic.socialLabel}</TableCell>
                   <TableCell>
                     {clinic.active ? (
                       <Badge className="bg-green-100 text-green-700 hover:bg-green-200 border-green-200">Active</Badge>
