@@ -5,7 +5,7 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { useParams, useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -349,6 +349,32 @@ export default function ClinicDetailsPage() {
                   </div>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="keywords" className="flex-1 space-y-6">
+          <Card className="bg-white border-neutral-200">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Target Keywords</CardTitle>
+                <CardDescription>Keywords currently being tracked for this clinic.</CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-neutral-100">
+                {keywords.map((kw) => (
+                  <div key={kw._id} className="bg-white p-4 flex flex-col gap-1">
+                    <span className="font-semibold text-neutral-900">{kw.term}</span>
+                    <span className="text-xs text-neutral-500 uppercase tracking-wider">
+                      {kw.localVariant || "General"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              {keywords.length === 0 && (
+                <div className="p-8 text-center text-neutral-500">No keywords found.</div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

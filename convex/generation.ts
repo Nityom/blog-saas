@@ -196,8 +196,11 @@ export const generatePost = action({
 Keyword: ${keyword.localVariant || keyword.term}
 Clinic: ${clinic.name}
 City: ${clinic.city}
+Address: ${clinic.address || "N/A"}
 Tone: ${clinic.tone}
 Author / Doctor: ${authorName}
+Author Qualification: ${clinic.authorQualification || "N/A"}
+Author Bio: ${clinic.authorBio || "N/A"}
 Doctor(s): ${clinic.doctorNames.join(", ")}
 Target patients: aged ${clinic.targetAge}
 Services: ${clinic.services.join(", ")}
@@ -219,8 +222,8 @@ Then write the post following these rules:
 - Simple language, no unexplained medical jargon.
 - Include real, helpful, specific information a patient would actually want to know (costs, procedure steps, recovery, what to ask your dentist).
 - FAQ block with 3 to 4 patient questions using \`###\` for each question heading.
-- Author credit line at the bottom: "*Written by ${authorName}, ${clinic.name}, ${clinic.city}.*"
-- Final CTA paragraph mentioning ${clinic.name} with a link to ${clinic.bookingUrl}.
+- Author credit line at the bottom: "*Written by ${authorName}, ${clinic.authorQualification || 'Dentist'} at ${clinic.name}, ${clinic.city}.*"
+- Final CTA paragraph mentioning ${clinic.name} with a link to ${clinic.bookingUrl}. Mention the location (${clinic.address || clinic.city}) naturally.
 - Naturally use the keyword and local city name (${clinic.city}) throughout.`;
 
       const draftOutput = await generateText(systemPrompt1, userPrompt1, 2200, 2, "anthropic/claude-haiku-4-5");
