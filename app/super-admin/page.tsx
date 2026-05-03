@@ -51,7 +51,7 @@ export default function SuperAdminDashboard() {
     try {
       await markPaid({ clinicId, cycleStartTime: cycleStartMs });
       toast.success("Marked as paid!");
-    } catch (e) {
+    } catch {
       toast.error("Failed to mark as paid");
     }
   };
