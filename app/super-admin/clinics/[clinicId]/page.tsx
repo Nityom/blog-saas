@@ -198,6 +198,12 @@ export default function ClinicDetailsPage() {
             <Link2 className="w-4 h-4 mr-2" />
             {isFixingLinks ? "Fixing..." : "Fix Broken Links"}
           </Button>
+          <Link href={`/clinic/${clinic._id}`}>
+            <Button variant="outline" className="border-neutral-200 text-neutral-700 hover:bg-neutral-50 gap-2">
+              <ExternalLink className="w-4 h-4" />
+              Login as Tenant
+            </Button>
+          </Link>
           <Link href={`/super-admin/clinics/${clinic._id}/generate`}>
             <Button className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
               <PlayCircle className="w-4 h-4" />
