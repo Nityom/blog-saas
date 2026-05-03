@@ -55,24 +55,27 @@ export const update = mutation({
     storageId: v.optional(v.id("_storage")),
     imageCredit: v.optional(v.string()),
     imageCreditUrl: v.optional(v.string()),
+    authorName: v.optional(v.string()),
     status: v.optional(
       v.union(v.literal("generating"), v.literal("draft"), v.literal("published"), v.literal("flagged"))
     ),
     wordpressPostId: v.optional(v.number()),
     publishedAt: v.optional(v.number()),
+    updatedAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const { postId, storageId, ...updates } = args;
-    
+
     let resolvedImageUrl = updates.imageUrl;
     if (storageId) {
       const url = await ctx.storage.getUrl(storageId);
       if (url) resolvedImageUrl = url;
     }
-    
+
     await ctx.db.patch(postId, {
       ...updates,
-      ...(resolvedImageUrl ? { imageUrl: resolvedImageUrl } : {})
+      ...(resolvedImageUrl ? { imageUrl: resolvedImageUrl } : {}),
+      updatedAt: Date.now(),
     });
   },
 });

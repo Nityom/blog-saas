@@ -1,9 +1,9 @@
-import { action, internalAction, internalMutation, internalQuery } from "./_generated/server";
+import { action, internalAction, internalMutation, internalQuery, query } from "./_generated/server";
 import { v } from "convex/values";
 import { generateText } from "../lib/ai";
 import { parseJsonFromText } from "../lib/json";
 import { fetchPexelsImage } from "../lib/pexels";
-import { generateSlug, generateSchemaMarkup, addInternalLinks } from "../lib/seo";
+import { generateSlug, generateSchemaMarkup, addInternalLinks, toHashtag } from "../lib/seo";
 import { selectNextKeyword } from "../lib/keywords";
 import { markdownToHtml, getWordCount, truncateToSentence } from "../lib/markdown";
 import { internal, api } from "./_generated/api";
@@ -57,6 +57,7 @@ export const finalizeGeneration = internalMutation({
     postData: v.any(),
     status: v.union(v.literal("draft"), v.literal("published"), v.literal("flagged")),
     logData: v.any(),
+    isRefresh: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     // 1. Get existing post slugs for this clinic to handle collisions
@@ -76,30 +77,36 @@ export const finalizeGeneration = internalMutation({
     const keyword = await ctx.db.get(args.keywordId);
     if (!keyword) throw new Error("Keyword not found");
 
-    // 4. Generate schema markup
+    const now = Date.now();
+
+    // 4. Generate schema markup (now includes FAQPage if FAQs detected + author)
     const schemaMarkup = generateSchemaMarkup(
       {
         title: args.postData.title,
         imageUrl: args.postData.imageUrl,
         slug: finalSlug,
         keywordTerm: keyword.term,
+        authorName: args.postData.authorName,
+        excerpt: args.postData.excerpt,
+        publishedAt: args.isRefresh ? undefined : now,
+        updatedAt: args.isRefresh ? now : undefined,
       },
-      { name: clinic.name, city: clinic.city }
+      { name: clinic.name, city: clinic.city },
+      args.postData.content  // pass raw markdown for FAQ extraction
     );
 
-    // 5. Add internal links
+    // 5. Add internal links (now includes clinic slug for proper URLs)
     const relatedPostsData = existingPosts
       .filter(p => p.status === "published" && p._id !== args.postId)
-      .slice(0, 5); // get some published posts
-    
-    // We would need to map keyword logic here, for simplicity we just map to the few recent ones
-    // In a real scenario we'd query keywords for these posts
+      .sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0))
+      .slice(0, 10);
+
     const relatedLinks = await Promise.all(relatedPostsData.map(async p => {
       const kw = await ctx.db.get(p.keywordId);
       return { slug: p.slug, keyword: kw?.term || "" };
     }));
-    
-    const linkedContent = addInternalLinks(args.postData.content, relatedLinks);
+
+    const linkedContent = addInternalLinks(args.postData.content, relatedLinks, clinic.slug);
 
     // 6. Update post record
     const updateData: any = {
@@ -117,17 +124,21 @@ export const finalizeGeneration = internalMutation({
       status: args.status,
       readingTime: args.postData.readingTime,
       schemaMarkup: schemaMarkup,
+      authorName: args.postData.authorName,
     };
-    
-    if (args.status === "published") {
-      updateData.publishedAt = Date.now();
+
+    if (args.isRefresh) {
+      updateData.updatedAt = now;
+    } else if (args.status === "published") {
+      updateData.publishedAt = now;
+      updateData.updatedAt = now;
     }
 
     await ctx.db.patch(args.postId, updateData);
 
     // 7. Update keyword
     await ctx.db.patch(args.keywordId, {
-      lastUsed: Date.now(),
+      lastUsed: now,
       timesUsed: keyword.timesUsed + 1,
     });
 
@@ -138,7 +149,7 @@ export const finalizeGeneration = internalMutation({
       status: args.logData.status,
       passesCompleted: args.logData.passesCompleted,
       errorMessage: args.logData.errorMessage,
-      runAt: Date.now(),
+      runAt: now,
     });
   },
 });
@@ -177,12 +188,16 @@ export const generatePost = action({
       // PASS 1 — DRAFT
       const systemPrompt1 = `You are an SEO dental content writer for patient-friendly blog posts. Return ONLY markdown. No explanation, no preamble, no backticks.`;
       
-      const userPrompt1 = `Write a complete SEO-optimized blog post.
+      // Use first doctor name for author attribution
+      const authorName = clinic.doctorNames[0] ? `Dr. ${clinic.doctorNames[0]}` : clinic.name;
+
+      const userPrompt1 = `Write a complete, in-depth SEO-optimized blog post.
 
 Keyword: ${keyword.localVariant || keyword.term}
 Clinic: ${clinic.name}
 City: ${clinic.city}
 Tone: ${clinic.tone}
+Author / Doctor: ${authorName}
 Doctor(s): ${clinic.doctorNames.join(", ")}
 Target patients: aged ${clinic.targetAge}
 Services: ${clinic.services.join(", ")}
@@ -193,20 +208,22 @@ At the very top include these HTML comments EXACTLY:
 <!-- metaDesc: your meta description here (max 155 chars) -->
 <!-- excerpt: one to two sentence post summary -->
 
-Then write the post:
+Then write the post following these rules:
 - MUST use strict Markdown formatting.
-- **CRITICAL**: You MUST leave a blank empty line between EVERY paragraph, heading, and list to ensure proper spacing.
-- Use \`#\` for the main H1 title.
-- Use \`##\` for 3 to 4 H2 section headings.
-- Use bullet points (\`-\` or \`*\`) to break up large chunks of text and present lists nicely.
-- Use **bold** for key terms and *italics* for important emphasized lines.
-- Write 500 to 600 words total.
+- **CRITICAL**: Leave a blank empty line between EVERY paragraph, heading, and list.
+- Use \`#\` for the main H1 title (include city and clinic name naturally).
+- Use \`##\` for 5 to 6 H2 section headings covering the topic thoroughly.
+- Use bullet points (\`-\` or \`*\`) to break up text and present lists.
+- Use **bold** for key terms and *italics* for important points.
+- **Write 1,200 to 1,500 words total** — this is critical for ranking.
 - Simple language, no unexplained medical jargon.
-- FAQ block with 2 patient questions (Use \`###\` for the questions).
-- Final CTA paragraph mentioning ${clinic.name} with a link to ${clinic.bookingUrl} for booking.
-- Naturally use the keyword throughout.`;
+- Include real, helpful, specific information a patient would actually want to know (costs, procedure steps, recovery, what to ask your dentist).
+- FAQ block with 3 to 4 patient questions using \`###\` for each question heading.
+- Author credit line at the bottom: "*Written by ${authorName}, ${clinic.name}, ${clinic.city}.*"
+- Final CTA paragraph mentioning ${clinic.name} with a link to ${clinic.bookingUrl}.
+- Naturally use the keyword and local city name (${clinic.city}) throughout.`;
 
-      const draftOutput = await generateText(systemPrompt1, userPrompt1, 900);
+      const draftOutput = await generateText(systemPrompt1, userPrompt1, 2200);
 
       // Parse output
       const metaTitleMatch = draftOutput.match(/<!-- metaTitle:\s*(.*?)\s*-->/i);
@@ -218,7 +235,7 @@ Then write the post:
       const title = h1Match ? h1Match[1] : `${keyword.localVariant || keyword.term} at ${clinic.name}`;
 
       const metaTitle = metaTitleMatch ? metaTitleMatch[1] : title;
-      const metaDesc = metaDescMatch ? metaDescMatch[1] : `Learn about ${keyword.term} at ${clinic.name}.`;
+      const metaDesc = metaDescMatch ? metaDescMatch[1] : `Learn about ${keyword.term} at ${clinic.name} in ${clinic.city}.`;
       const excerpt = excerptMatch ? excerptMatch[1] : truncateToSentence(content, 160);
       const readingTime = Math.ceil(getWordCount(content) / 200);
       let socialContentJson = "{}";
@@ -285,7 +302,8 @@ Rules:
 - facebook.hashtags: 3-5 relevant dental hashtags
 - instagram.storyText: max 80 chars, bold hook line
 - instagram.caption: max 150 chars with booking URL
-- instagram.hashtags: 8-10 dental + local hashtags including #${clinic.city}Dentist #DentalCare #${keyword.term.replace(/\s+/g, "")}`;
+- instagram.hashtags: 8-10 dental + local hashtags including ${toHashtag(clinic.city + ' dentist')} #DentalCare ${toHashtag(keyword.term)}
+- IMPORTANT: All hashtags must be PascalCase (e.g. #DentalImplantsPune not #dentalimplantspune)`;
 
         const fallback = {
           facebook: {
@@ -346,6 +364,7 @@ Rules:
           imageCreditUrl: pexelsImage.imageCreditUrl,
           safetyReport: safetyReportJson,
           socialContent: socialContentJson,
+          authorName,
         },
         status: finalStatus,
         logData: {
@@ -511,3 +530,128 @@ Use strict Markdown, blank lines between elements.`;
     }
   },
 });
+
+// ─── Content Freshness Refresh ──────────────────────────────────────────────
+// Finds published posts that haven't been updated in 90+ days and re-generates
+// their content. Signals to Google the site is actively maintained.
+
+export const getPostsNeedingRefresh = internalQuery({
+  handler: async (ctx) => {
+    const ninetyDaysAgo = Date.now() - 90 * 24 * 60 * 60 * 1000;
+    const allPublished = await ctx.db
+      .query("posts")
+      .filter((q) => q.eq(q.field("status"), "published"))
+      .collect();
+
+    // Return posts where updatedAt is missing or older than 90 days
+    return allPublished.filter(
+      (p) => !p.updatedAt || p.updatedAt < ninetyDaysAgo
+    );
+  },
+});
+
+export const refreshPost = internalAction({
+  args: { postId: v.id("posts") },
+  handler: async (ctx, args) => {
+    const post = await ctx.runQuery(internal.generation.getPostById, { postId: args.postId });
+    if (!post) return;
+
+    const clinic = await ctx.runQuery(internal.generationHelpers.getClinic, { clinicId: post.clinicId });
+    if (!clinic) return;
+
+    const keyword = await ctx.runQuery(internal.generation.getKeywordById, { keywordId: post.keywordId });
+    if (!keyword) return;
+
+    const authorName = clinic.doctorNames[0] ? `Dr. ${clinic.doctorNames[0]}` : clinic.name;
+
+    const systemPrompt = `You are an SEO dental content writer. Rewrite and improve this blog post to be fresher, more detailed, and better optimised. Return ONLY markdown. No explanation.`;
+    const userPrompt = `Rewrite and significantly improve this existing dental blog post. Keep the same topic but make it more detailed, current, and helpful.
+
+Keyword: ${keyword.localVariant || keyword.term}
+Clinic: ${clinic.name}, ${clinic.city}
+Author: ${authorName}
+Booking URL: ${clinic.bookingUrl}
+
+Existing content to improve:
+${post.content}
+
+Rules:
+- At the top include: <!-- metaTitle: ... --> <!-- metaDesc: ... --> <!-- excerpt: ... -->
+- Write 1,200 to 1,500 words
+- Use ## for 5-6 H2 headings
+- FAQ block with ### for 3-4 questions
+- Include current year where relevant
+- Author credit at bottom: "*Written by ${authorName}, ${clinic.name}.*"
+- Naturally use keyword and city throughout`;
+
+    try {
+      const refreshed = await generateText(systemPrompt, userPrompt, 2200);
+
+      const metaTitleMatch = refreshed.match(/<!-- metaTitle:\s*(.*?)\s*-->/i);
+      const metaDescMatch = refreshed.match(/<!-- metaDesc:\s*(.*?)\s*-->/i);
+      const excerptMatch = refreshed.match(/<!-- excerpt:\s*(.*?)\s*-->/i);
+
+      let content = refreshed.replace(/<!--[\s\S]*?-->/g, "").trim();
+      const h1Match = content.match(/^#\s+(.*)/m);
+      const title = h1Match ? h1Match[1] : post.title;
+
+      const metaTitle = metaTitleMatch ? metaTitleMatch[1] : post.metaTitle;
+      const metaDesc = metaDescMatch ? metaDescMatch[1] : post.metaDesc;
+      const excerpt = excerptMatch ? excerptMatch[1] : post.excerpt;
+      const readingTime = Math.ceil(getWordCount(content) / 200);
+
+      await ctx.runMutation(internal.generation.finalizeGeneration, {
+        clinicId: post.clinicId,
+        postId: post._id,
+        keywordId: post.keywordId,
+        postData: {
+          title,
+          excerpt,
+          content,
+          metaTitle,
+          metaDesc,
+          readingTime,
+          imageUrl: post.imageUrl,
+          imageCredit: post.imageCredit,
+          imageCreditUrl: post.imageCreditUrl,
+          safetyReport: post.safetyReport,
+          socialContent: post.socialContent,
+          authorName,
+        },
+        status: "published",
+        isRefresh: true,
+        logData: { status: "success", passesCompleted: 1 },
+      });
+
+      console.log(`Refreshed post: ${title}`);
+    } catch (err: any) {
+      console.error(`Failed to refresh post ${post._id}:`, err.message);
+    }
+  },
+});
+
+export const getPostById = internalQuery({
+  args: { postId: v.id("posts") },
+  handler: async (ctx, args) => ctx.db.get(args.postId),
+});
+
+export const getKeywordById = internalQuery({
+  args: { keywordId: v.id("keywords") },
+  handler: async (ctx, args) => ctx.db.get(args.keywordId),
+});
+
+export const refreshAllOldPosts = internalAction({
+  handler: async (ctx) => {
+    const stalePosts = await ctx.runQuery(internal.generation.getPostsNeedingRefresh);
+    console.log(`Refreshing ${stalePosts.length} stale posts...`);
+
+    // Refresh up to 5 posts per run to stay within Convex action limits
+    const batch = stalePosts.slice(0, 5);
+    await Promise.allSettled(
+      batch.map((p) =>
+        ctx.runAction(internal.generation.refreshPost, { postId: p._id })
+      )
+    );
+  },
+});
+

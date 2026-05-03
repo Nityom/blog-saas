@@ -117,11 +117,32 @@ export default async function BlogPostPage({ params }: { params: { clinicSlug: s
               </time>
               <span>•</span>
               <span className="bg-neutral-100 text-neutral-600 px-2 py-1 rounded">{post.readingTime} min read</span>
+              {post.updatedAt && post.updatedAt !== post.publishedAt && (
+                <>
+                  <span>•</span>
+                  <span className="text-neutral-400 normal-case">Updated {new Date(post.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                </>
+              )}
             </div>
-            
+
             <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-8 leading-tight">
               {post.title}
             </h1>
+
+            {/* Author attribution — E-E-A-T signal */}
+            {post.authorName && (
+              <div className="inline-flex items-center gap-3 bg-neutral-50 border border-neutral-200 rounded-full px-4 py-2">
+                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                  <span className="text-sm font-bold text-blue-600">
+                    {post.authorName.replace('Dr. ', '').charAt(0)}
+                  </span>
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-semibold text-neutral-800 leading-none">{post.authorName}</p>
+                  <p className="text-xs text-neutral-500 mt-0.5">{clinic.name} · {clinic.city}</p>
+                </div>
+              </div>
+            )}
           </header>
 
           <figure className="mb-12">

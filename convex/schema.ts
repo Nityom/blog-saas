@@ -70,6 +70,8 @@ export default defineSchema({
     schemaMarkup: v.string(),
     wordpressPostId: v.optional(v.number()),
     publishedAt: v.optional(v.number()),
+    updatedAt: v.optional(v.number()),   // for freshness refresh
+    authorName: v.optional(v.string()),  // doctor name for E-E-A-T
     createdAt: v.number(),
   })
     .index("by_clinic", ["clinicId"])

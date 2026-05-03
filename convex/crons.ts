@@ -15,4 +15,12 @@ crons.interval(
   api.social.refreshAllMetaTokens
 );
 
+// Every Sunday at 03:00 UTC — refresh up to 5 posts that are 90+ days stale
+crons.cron(
+  "weekly-content-refresh",
+  "0 3 * * 0",
+  internal.generation.refreshAllOldPosts
+);
+
 export default crons;
+
