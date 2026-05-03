@@ -291,7 +291,13 @@ export default async function BlogPostPage({ params }: { params: { clinicSlug: s
         <div className="max-w-4xl mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between gap-6 mb-6">
             <div>
-              <p className="font-bold text-neutral-800 text-base">{clinic.name}</p>
+              <div className="flex items-center gap-3 mb-2">
+                {clinic.logoUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={clinic.logoUrl} alt={clinic.name} className="h-8 w-auto object-contain" />
+                )}
+                <p className="font-bold text-neutral-800 text-base">{clinic.name}</p>
+              </div>
               {clinic.address && (
                 <div className="flex items-start gap-2 mt-2 text-sm text-neutral-600">
                   <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0 text-neutral-400" />
