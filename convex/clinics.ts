@@ -59,6 +59,15 @@ export const create = mutation({
     autoPostFacebook: v.optional(v.boolean()),
     autoPostInstagram: v.optional(v.boolean()),
     logoUrl: v.optional(v.string()),
+    address: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    whatsappNumber: v.optional(v.string()),
+    mainWebsiteUrl: v.optional(v.string()),
+    googleMapsUrl: v.optional(v.string()),
+    googleMapsEmbedUrl: v.optional(v.string()),
+    authorQualification: v.optional(v.string()),
+    authorBio: v.optional(v.string()),
+    authorPhotoUrl: v.optional(v.string()),
     subscriptionStartDate: v.optional(v.string()),
     monthlyRate: v.optional(v.number()),
   },
@@ -105,6 +114,15 @@ export const update = mutation({
     autoPostFacebook: v.optional(v.boolean()),
     autoPostInstagram: v.optional(v.boolean()),
     logoUrl: v.optional(v.string()),
+    address: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    whatsappNumber: v.optional(v.string()),
+    mainWebsiteUrl: v.optional(v.string()),
+    googleMapsUrl: v.optional(v.string()),
+    googleMapsEmbedUrl: v.optional(v.string()),
+    authorQualification: v.optional(v.string()),
+    authorBio: v.optional(v.string()),
+    authorPhotoUrl: v.optional(v.string()),
     subscriptionStartDate: v.optional(v.string()),
     monthlyRate: v.optional(v.number()),
     lastPaidCycleStart: v.optional(v.number()),
@@ -176,3 +194,27 @@ export const markPaid = mutation({
     });
   },
 });
+
+export const fixBrokenInternalLinks = mutation({
+  args: { clinicId: v.id("clinics") },
+  handler: async (ctx, args) => {
+    const clinic = await ctx.db.get(args.clinicId);
+    if (!clinic) throw new Error("Clinic not found");
+
+    const posts = await ctx.db
+      .query("posts")
+      .withIndex("by_clinic", (q) => q.eq("clinicId", args.clinicId))
+      .collect();
+
+    let fixedCount = 0;
+    for (const post of posts) {
+      if (post.content.includes("CLINIC_SLUG_PLACEHOLDER")) {
+        const newContent = post.content.split("CLINIC_SLUG_PLACEHOLDER").join(clinic.slug);
+        await ctx.db.patch(post._id, { content: newContent });
+        fixedCount++;
+      }
+    }
+    return fixedCount;
+  },
+});
+

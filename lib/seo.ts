@@ -1,6 +1,11 @@
 export interface SeoClinic {
   name: string;
   city: string;
+  address?: string;
+  phone?: string;
+  mainWebsiteUrl?: string;
+  googleMapsUrl?: string;
+  authorQualification?: string;
 }
 
 export interface SeoPost {
@@ -167,4 +172,32 @@ export function addInternalLinks(
   }
 
   return updatedContent;
+}
+
+/**
+ * Generates LocalBusiness + MedicalOrganization schema for the blog site.
+ * Place on every blog page (index + post) for local SEO signals.
+ */
+export function generateLocalBusinessSchema(clinic: SeoClinic, blogUrl: string): string {
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": ["MedicalOrganization", "LocalBusiness"],
+    name: clinic.name,
+    url: clinic.mainWebsiteUrl || blogUrl,
+    address: {
+      "@type": "PostalAddress",
+      ...(clinic.address ? { streetAddress: clinic.address } : {}),
+      addressLocality: clinic.city,
+      addressCountry: "IN",
+    },
+    ...(clinic.phone ? { telephone: clinic.phone } : {}),
+    ...(clinic.googleMapsUrl ? { hasMap: clinic.googleMapsUrl } : {}),
+    medicalSpecialty: "Dentistry",
+    areaServed: { "@type": "City", name: clinic.city },
+    sameAs: [
+      ...(clinic.mainWebsiteUrl ? [clinic.mainWebsiteUrl] : []),
+      ...(clinic.googleMapsUrl ? [clinic.googleMapsUrl] : []),
+    ],
+  };
+  return JSON.stringify(schema);
 }

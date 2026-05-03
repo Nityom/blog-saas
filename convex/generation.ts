@@ -223,7 +223,7 @@ Then write the post following these rules:
 - Final CTA paragraph mentioning ${clinic.name} with a link to ${clinic.bookingUrl}.
 - Naturally use the keyword and local city name (${clinic.city}) throughout.`;
 
-      const draftOutput = await generateText(systemPrompt1, userPrompt1, 2200);
+      const draftOutput = await generateText(systemPrompt1, userPrompt1, 2200, 2, "anthropic/claude-haiku-4-5");
 
       // Parse output
       const metaTitleMatch = draftOutput.match(/<!-- metaTitle:\s*(.*?)\s*-->/i);
@@ -585,7 +585,7 @@ Rules:
 - Naturally use keyword and city throughout`;
 
     try {
-      const refreshed = await generateText(systemPrompt, userPrompt, 2200);
+      const refreshed = await generateText(systemPrompt, userPrompt, 2200, 2, "anthropic/claude-haiku-4-5");
 
       const metaTitleMatch = refreshed.match(/<!-- metaTitle:\s*(.*?)\s*-->/i);
       const metaDescMatch = refreshed.match(/<!-- metaDesc:\s*(.*?)\s*-->/i);

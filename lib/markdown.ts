@@ -1,8 +1,15 @@
 import { marked } from 'marked';
 
+/**
+ * Strips the first # H1 heading from markdown so it doesn't duplicate
+ * the <h1> the page already renders from post.title.
+ */
+export function stripLeadingH1(markdown: string): string {
+  return markdown.replace(/^#\s+.+\n*/m, '');
+}
+
 export function markdownToHtml(markdown: string): string {
-  // marked.parse can return string or Promise depending on config, but default synchronous returns string
-  return marked.parse(markdown) as string;
+  return marked.parse(stripLeadingH1(markdown)) as string;
 }
 
 export function getWordCount(markdown: string): number {

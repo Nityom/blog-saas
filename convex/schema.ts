@@ -24,6 +24,17 @@ export default defineSchema({
     autoPostFacebook: v.optional(v.boolean()),
     autoPostInstagram: v.optional(v.boolean()),
     logoUrl: v.optional(v.string()),
+    // Local SEO & Contact
+    address: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    whatsappNumber: v.optional(v.string()),
+    mainWebsiteUrl: v.optional(v.string()),
+    googleMapsUrl: v.optional(v.string()),
+    googleMapsEmbedUrl: v.optional(v.string()),
+    // Author / Doctor E-E-A-T
+    authorQualification: v.optional(v.string()),
+    authorBio: v.optional(v.string()),
+    authorPhotoUrl: v.optional(v.string()),
     subscriptionStartDate: v.optional(v.string()),
     monthlyRate: v.optional(v.number()),
     lastPaidCycleStart: v.optional(v.number()),
