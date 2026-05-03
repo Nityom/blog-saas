@@ -204,6 +204,13 @@ export default async function BlogPostPage({ params }: { params: { clinicSlug: s
             dangerouslySetInnerHTML={{ __html: contentHtml }}
           />
 
+          <div className="my-12 py-6 border-y border-neutral-100 text-center">
+            <p className="text-neutral-500 text-sm mb-3 italic">Interested in treatment at {clinic.name}?</p>
+            <a href={clinic.bookingUrl} target="_blank" className="text-blue-600 font-bold hover:underline">
+              Check our available slots for {clinic.city} patients →
+            </a>
+          </div>
+
           {post.authorName && (
             <div className="mt-14 p-6 bg-blue-50 border border-blue-100 rounded-2xl flex gap-5 items-start">
               {clinic.authorPhotoUrl ? (
