@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
-import { ArrowLeft, PlayCircle, MapPin, Phone, MessageCircle, User, Globe, Link2, Copy, ExternalLink } from "lucide-react";
+import { ArrowLeft, PlayCircle, MapPin, Phone, MessageCircle, User, Globe, Link2, Copy, ExternalLink, Share2, ShieldCheck, ShieldAlert } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
@@ -38,7 +38,44 @@ interface ClinicData {
   authorPhotoUrl?: string;
   doctorNames?: string[];
   services?: string[];
+  metaPageId?: string;
+  metaPageName?: string;
+  metaInstagramAccountId?: string;
+  autoPostFacebook?: boolean;
+  autoPostInstagram?: boolean;
 }
+
+const FacebookIcon = ({ className }: { className?: string }) => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+  </svg>
+);
+
+const InstagramIcon = ({ className }: { className?: string }) => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+    <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+  </svg>
+);
 
 export default function ClinicDetailsPage() {
   const params = useParams();
@@ -168,6 +205,18 @@ export default function ClinicDetailsPage() {
     navigator.clipboard.writeText(code);
     toast.success("Embed code copied to clipboard!");
   };
+  
+  const handleToggleAutoPost = async (platform: "facebook" | "instagram", enabled: boolean) => {
+    try {
+      await updateClinic({
+        clinicId: clinic._id,
+        [platform === "facebook" ? "autoPostFacebook" : "autoPostInstagram"]: enabled,
+      });
+      toast.success(`${platform === "facebook" ? "Facebook" : "Instagram"} auto-posting ${enabled ? "enabled" : "disabled"}`);
+    } catch {
+      toast.error("Failed to update auto-post settings");
+    }
+  };
 
   const blogUrl = clinic.customDomain ? `https://${clinic.customDomain}` : `/blog/${clinic.slug}`;
 
@@ -227,6 +276,7 @@ export default function ClinicDetailsPage() {
           <TabsTrigger value="seo" className="justify-start">SEO & Profile</TabsTrigger>
           <TabsTrigger value="posts" className="justify-start">Posts ({posts.length})</TabsTrigger>
           <TabsTrigger value="keywords" className="justify-start">Keywords ({keywords.length})</TabsTrigger>
+          <TabsTrigger value="social" className="justify-start">Social Media</TabsTrigger>
           <TabsTrigger value="billing" className="justify-start">Billing</TabsTrigger>
           <TabsTrigger value="danger" className="justify-start text-red-600">Danger Zone</TabsTrigger>
         </TabsList>
@@ -418,6 +468,99 @@ export default function ClinicDetailsPage() {
                 </div>
               </div>
               <Button onClick={handleSaveBilling} disabled={isSavingBilling} className="bg-blue-600 text-white">Save Billing</Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="social" className="flex-1 space-y-6">
+          <Card className="bg-white border-neutral-200">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Share2 className="w-5 h-5 text-blue-600" />
+                    Meta Integration
+                  </CardTitle>
+                  <CardDescription>Auto-post blog updates to Facebook & Instagram.</CardDescription>
+                </div>
+                {clinic.metaPageId ? (
+                  <Badge className="bg-green-100 text-green-700 flex items-center gap-1">
+                    <ShieldCheck className="w-3 h-3" /> Connected
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-neutral-400 flex items-center gap-1">
+                    <ShieldAlert className="w-3 h-3" /> Disconnected
+                  </Badge>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-8">
+              {!clinic.metaPageId ? (
+                <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-8 text-center space-y-4">
+                  <div className="flex justify-center gap-4">
+                    <div className="p-3 bg-white rounded-full shadow-sm"><FacebookIcon className="w-8 h-8 text-[#1877F2]" /></div>
+                    <div className="p-3 bg-white rounded-full shadow-sm"><InstagramIcon className="w-8 h-8 text-[#E4405F]" /></div>
+                  </div>
+                  <div className="max-w-md mx-auto">
+                    <h4 className="font-bold text-neutral-900 text-lg">Connect to Meta</h4>
+                    <p className="text-sm text-neutral-500 mt-1">
+                      Link this clinic to a Facebook Page to enable automated social media updates for every new blog post.
+                    </p>
+                  </div>
+                  <Link href={`/api/connect/facebook/${clinic._id}`}>
+                    <Button className="bg-[#1877F2] hover:bg-[#166fe5] text-white px-8 h-12 rounded-full font-bold shadow-lg shadow-blue-200 mt-4">
+                      <FacebookIcon className="w-5 h-5 mr-2" />
+                      Login with Facebook
+                    </Button>
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                   <div className="p-6 bg-blue-50 border border-blue-100 rounded-xl flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3 bg-white rounded-full shadow-sm"><FacebookIcon className="w-6 h-6 text-[#1877F2]" /></div>
+                        <div>
+                          <p className="text-xs text-blue-600 font-bold uppercase tracking-wider">Connected Page</p>
+                          <h4 className="font-bold text-blue-900 text-lg">{clinic.metaPageName}</h4>
+                        </div>
+                      </div>
+                      <Button variant="ghost" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={async () => {
+                        if(confirm("Are you sure you want to disconnect Meta?")) {
+                          // Note: You would need a clearMeta mutation here, but we'll use a placeholder or the clinic update
+                          await updateClinic({ clinicId: clinic._id, metaPageId: "", metaPageName: "", metaPageAccessTokenEncrypted: "", metaInstagramAccountId: "" });
+                          toast.success("Disconnected from Meta");
+                        }
+                      }}>Disconnect</Button>
+                   </div>
+
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+                      <div className="flex items-center justify-between p-4 bg-white border border-neutral-200 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <FacebookIcon className="w-5 h-5 text-[#1877F2]" />
+                          <span className="font-medium">Facebook Auto-post</span>
+                        </div>
+                        <input 
+                          type="checkbox" 
+                          className="w-5 h-5 accent-blue-600"
+                          checked={clinic.autoPostFacebook}
+                          onChange={(e) => handleToggleAutoPost("facebook", e.target.checked)}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between p-4 bg-white border border-neutral-200 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <InstagramIcon className="w-5 h-5 text-[#E4405F]" />
+                          <span className="font-medium">Instagram Auto-post</span>
+                        </div>
+                        <input 
+                          type="checkbox" 
+                          className="w-5 h-5 accent-pink-600"
+                          checked={clinic.autoPostInstagram}
+                          onChange={(e) => handleToggleAutoPost("instagram", e.target.checked)}
+                        />
+                      </div>
+                   </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
