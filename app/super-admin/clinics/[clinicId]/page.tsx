@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
 import { ArrowLeft, PlayCircle, MapPin, Phone, MessageCircle, User, Globe, Link2, Copy, ExternalLink, Share2, ShieldCheck, ShieldAlert } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
 interface ClinicData {
@@ -80,7 +81,11 @@ const InstagramIcon = ({ className }: { className?: string }) => (
 export default function ClinicDetailsPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const clinicId = params.clinicId as Id<"clinics">;
+
+  const socialError = searchParams.get("socialError");
+  const socialSuccess = searchParams.get("socialSuccess");
 
   const clinicRaw = useQuery(api.clinics.getById, { clinicId });
   const posts = useQuery(api.posts.getByClinic, { clinicId });
@@ -133,6 +138,17 @@ export default function ClinicDetailsPage() {
       setMonthlyRate(clinic.monthlyRate ?? "");
     }
   }, [clinic]);
+
+  useEffect(() => {
+    if (socialError) {
+      toast.error(`Social Connection Failed: ${socialError.replace(/_/g, ' ')}`);
+      router.replace(`/super-admin/clinics/${clinicId}`);
+    }
+    if (socialSuccess) {
+      toast.success("Social Connection Successful!");
+      router.replace(`/super-admin/clinics/${clinicId}`);
+    }
+  }, [socialError, socialSuccess, clinicId, router]);
 
   if (clinic === undefined || posts === undefined || keywords === undefined) {
     return <div className="p-8 text-neutral-400">Loading clinic details...</div>;
