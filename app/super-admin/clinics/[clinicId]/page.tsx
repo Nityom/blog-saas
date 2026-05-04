@@ -507,12 +507,12 @@ export default function ClinicDetailsPage() {
                       Link this clinic to a Facebook Page to enable automated social media updates for every new blog post.
                     </p>
                   </div>
-                  <Link href={`/api/connect/facebook/${clinic._id}`}>
-                    <Button className="bg-[#1877F2] hover:bg-[#166fe5] text-white px-8 h-12 rounded-full font-bold shadow-lg shadow-blue-200 mt-4">
+                  <Button asChild className="bg-[#1877F2] hover:bg-[#166fe5] text-white px-8 h-12 rounded-full font-bold shadow-lg shadow-blue-200 mt-4">
+                    <a href={`/api/connect/facebook/${clinic._id}`}>
                       <FacebookIcon className="w-5 h-5 mr-2" />
                       Login with Facebook
-                    </Button>
-                  </Link>
+                    </a>
+                  </Button>
                 </div>
               ) : (
                 <div className="space-y-6">
