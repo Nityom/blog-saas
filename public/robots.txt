@@ -1,0 +1,9 @@
+# *
+User-agent: *
+Allow: /
+
+# Host
+Host: https://blog-saas-five.vercel.app
+
+# Sitemaps
+Sitemap: https://blog-saas-five.vercel.app/sitemap.xml

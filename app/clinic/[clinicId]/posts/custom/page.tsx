@@ -115,6 +115,7 @@ export default function CustomPostPage() {
             <div className="text-sm font-medium text-neutral-900">Featured Image (Optional)</div>
             {imagePreview ? (
               <div className="relative inline-block border border-neutral-200 rounded-md p-1">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={imagePreview} alt="Preview" className="h-32 w-auto object-cover rounded-sm" />
                 <button
                   type="button"

@@ -143,14 +143,20 @@ export default function NewClinicPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="doctorNames" className="text-neutral-700 font-semibold">Doctor Names (comma separated)</Label>
-                <Input id="doctorNames" name="doctorNames" value={formData.doctorNames} onChange={handleChange} placeholder="e.g. Dr. Tarun Pandey, Dr. Jane Doe" className="bg-white border-neutral-300 shadow-sm" />
+            <div className="space-y-4 pt-6 border-t border-neutral-100">
+              <div className="flex items-center gap-2 text-blue-600">
+                <User className="w-5 h-5" />
+                <h3 className="font-bold text-neutral-900">AI Generation Context</h3>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="services" className="text-neutral-700 font-semibold">Services (comma separated)</Label>
-                <Input id="services" name="services" value={formData.services} onChange={handleChange} placeholder="e.g. Orthodontics, Dental Implants" className="bg-white border-neutral-300 shadow-sm" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="doctorNames" className="text-neutral-700 font-semibold text-sm">Doctor Names (comma separated for multiple)</Label>
+                  <Input id="doctorNames" name="doctorNames" value={formData.doctorNames} onChange={handleChange} placeholder="e.g. Dr. Tarun Pandey, Dr. Jane Doe" className="bg-white border-neutral-300 shadow-sm" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="services" className="text-neutral-700 font-semibold text-sm">Services (comma separated for multiple)</Label>
+                  <Input id="services" name="services" value={formData.services} onChange={handleChange} placeholder="e.g. Orthodontics, Dental Implants" className="bg-white border-neutral-300 shadow-sm" />
+                </div>
               </div>
             </div>
 
