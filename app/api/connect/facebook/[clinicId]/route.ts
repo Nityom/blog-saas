@@ -21,7 +21,7 @@ export async function GET(
   redirectUrl.searchParams.set("redirect_uri", `${baseUrl}/api/connect/facebook/callback`);
   redirectUrl.searchParams.set(
     "scope",
-    "pages_manage_posts,pages_read_engagement,pages_show_list,instagram_basic,instagram_content_publish"
+    "pages_manage_posts,pages_read_engagement,pages_show_list,instagram_business_basic,instagram_business_content_publish"
   );
   redirectUrl.searchParams.set("state", params.clinicId);
   redirectUrl.searchParams.set("response_type", "code");
