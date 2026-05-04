@@ -98,3 +98,18 @@ export const remove = mutation({
     await ctx.db.delete(args.postId);
   },
 });
+
+export const cleanupAuthorNames = mutation({
+  handler: async (ctx) => {
+    const posts = await ctx.db.query("posts").collect();
+    let fixedCount = 0;
+    for (const post of posts) {
+      if (post.authorName && post.authorName.toLowerCase().startsWith("dr. dr.")) {
+        const newName = post.authorName.replace(/^dr\.\s+dr\./i, "Dr.");
+        await ctx.db.patch(post._id, { authorName: newName });
+        fixedCount++;
+      }
+    }
+    return fixedCount;
+  },
+});

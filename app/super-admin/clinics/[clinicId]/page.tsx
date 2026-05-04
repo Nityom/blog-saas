@@ -64,6 +64,8 @@ export default function ClinicDetailsPage() {
     authorBio: "",
     authorPhotoUrl: "",
     customDomain: "",
+    doctorNames: "",
+    services: "",
   });
 
   const [isSavingSeo, setIsSavingSeo] = useState(false);
@@ -85,6 +87,8 @@ export default function ClinicDetailsPage() {
         authorBio: clinic.authorBio || "",
         authorPhotoUrl: clinic.authorPhotoUrl || "",
         customDomain: clinic.customDomain || "",
+        doctorNames: (clinic as any).doctorNames?.join(", ") || "",
+        services: (clinic as any).services?.join(", ") || "",
       });
       setSubscriptionStartDate(clinic.subscriptionStartDate || "");
       setMonthlyRate(clinic.monthlyRate ?? "");
@@ -110,6 +114,8 @@ export default function ClinicDetailsPage() {
       await updateClinic({
         clinicId: clinic._id,
         ...seoData,
+        doctorNames: seoData.doctorNames.split(",").map(d => d.trim()).filter(Boolean),
+        services: seoData.services.split(",").map(s => s.trim()).filter(Boolean),
       });
       toast.success("SEO & Profile data updated!");
     } catch {
@@ -270,6 +276,16 @@ export default function ClinicDetailsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="doctorNames">Doctor Names (comma separated)</Label>
+                  <Input name="doctorNames" value={seoData.doctorNames} onChange={handleSeoChange} placeholder="Dr. Tarun Pandey, Dr. Jane Doe" className="bg-white" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="services">Services (comma separated)</Label>
+                  <Input name="services" value={seoData.services} onChange={handleSeoChange} placeholder="Orthodontics, Dental Implants" className="bg-white" />
+                </div>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="address">Full Clinic Address</Label>
                 <Input name="address" value={seoData.address} onChange={handleSeoChange} placeholder="123, Street Name, Bhopal" className="bg-white" />

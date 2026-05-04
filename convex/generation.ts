@@ -189,7 +189,10 @@ export const generatePost = action({
       const systemPrompt1 = `You are an SEO dental content writer for patient-friendly blog posts. Return ONLY markdown. No explanation, no preamble, no backticks.`;
       
       // Use first doctor name for author attribution
-      const authorName = clinic.doctorNames[0] ? `Dr. ${clinic.doctorNames[0]}` : clinic.name;
+      const rawDoctorName = clinic.doctorNames[0] || clinic.name;
+      const authorName = rawDoctorName.toLowerCase().startsWith("dr.") 
+        ? rawDoctorName 
+        : `Dr. ${rawDoctorName}`;
 
       const userPrompt1 = `Write a complete, in-depth SEO-optimized blog post.
 
@@ -565,7 +568,10 @@ export const refreshPost = internalAction({
     const keyword = await ctx.runQuery(internal.generation.getKeywordById, { keywordId: post.keywordId });
     if (!keyword) return;
 
-    const authorName = clinic.doctorNames[0] ? `Dr. ${clinic.doctorNames[0]}` : clinic.name;
+    const rawDoctorName = clinic.doctorNames[0] || clinic.name;
+    const authorName = rawDoctorName.toLowerCase().startsWith("dr.") 
+      ? rawDoctorName 
+      : `Dr. ${rawDoctorName}`;
 
     const systemPrompt = `You are an SEO dental content writer. Rewrite and improve this blog post to be fresher, more detailed, and better optimised. Return ONLY markdown. No explanation.`;
     const userPrompt = `Rewrite and significantly improve this existing dental blog post. Keep the same topic but make it more detailed, current, and helpful.
