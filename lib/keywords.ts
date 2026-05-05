@@ -8,6 +8,7 @@ export interface Keyword {
   performanceScore: number;
   lowRisk: boolean;
   paused: boolean;
+  order?: number;
   createdAt: number;
 }
 
@@ -22,8 +23,15 @@ export function selectNextKeyword(keywords: Keyword[]): Keyword | null {
   
   if (eligible.length === 0) return null;
   
-  // Sort by performanceScore DESC
-  eligible.sort((a, b) => b.performanceScore - a.performanceScore);
+  // Sort by order ASC (if present), then performanceScore DESC
+  eligible.sort((a, b) => {
+    const orderA = a.order ?? Infinity;
+    const orderB = b.order ?? Infinity;
+    if (orderA !== orderB) {
+      return orderA - orderB;
+    }
+    return b.performanceScore - a.performanceScore;
+  });
   
   return eligible[0];
 }

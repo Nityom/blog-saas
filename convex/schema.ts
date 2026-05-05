@@ -52,6 +52,7 @@ export default defineSchema({
     performanceScore: v.number(),
     lowRisk: v.boolean(),
     paused: v.boolean(),
+    order: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_clinic", ["clinicId"])

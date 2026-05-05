@@ -50,6 +50,22 @@ export const remove = mutation({
   },
 });
 
+export const reorder = mutation({
+  args: {
+    updates: v.array(
+      v.object({
+        keywordId: v.id("keywords"),
+        order: v.number(),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    for (const update of args.updates) {
+      await ctx.db.patch(update.keywordId, { order: update.order });
+    }
+  },
+});
+
 export const seedDefaultKeywords = mutation({
   args: { clinicId: v.id("clinics"), city: v.string() },
   handler: async (ctx, args) => {
@@ -88,5 +104,47 @@ export const seedDefaultKeywords = mutation({
         createdAt: Date.now(),
       });
     }
+  },
+});
+
+export const insertRefinedKeywords = mutation({
+  args: { clinicId: v.id("clinics") },
+  handler: async (ctx, args) => {
+    const clinic = await ctx.db.get(args.clinicId);
+    if (!clinic) throw new Error("Clinic not found");
+
+    const newKeywords = [
+      "Cost of root canal treatment",
+      "Symptoms that indicate you need a root canal",
+      "Is root canal treatment painful?",
+      "Is a root canal safe and permanent?",
+      "Why is a root canal done?",
+      "Zirconia vs porcelain dental crowns",
+      "Types of dental crowns and their cost",
+      "Dental crowns for front teeth",
+      "Emax dental crowns cost and benefits",
+      "Do you need a crown after a root canal?",
+      "Teeth sensitivity to cold",
+      "Teeth sensitivity pain relief at home",
+      "Teeth sensitivity during pregnancy",
+      "Causes of sudden teeth sensitivity",
+      "Best toothpaste for teeth sensitivity"
+    ];
+
+    let inserted = 0;
+    for (const term of newKeywords) {
+      await ctx.db.insert("keywords", {
+        clinicId: clinic._id,
+        term: term,
+        localVariant: `${term} in ${clinic.city}`,
+        timesUsed: 0,
+        performanceScore: 0,
+        lowRisk: true,
+        paused: false,
+        createdAt: Date.now(),
+      });
+      inserted++;
+    }
+    return inserted;
   },
 });

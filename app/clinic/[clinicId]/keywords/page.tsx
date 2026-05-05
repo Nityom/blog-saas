@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -12,7 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Trash2, PauseCircle, PlayCircle, Plus } from "lucide-react";
+import { Trash2, PauseCircle, PlayCircle, Plus, GripVertical } from "lucide-react";
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 
 export default function ClinicKeywordsPage() {
   const params = useParams();
@@ -24,10 +25,24 @@ export default function ClinicKeywordsPage() {
   const addKeyword = useMutation(api.keywords.add);
   const updateKeyword = useMutation(api.keywords.update);
   const deleteKeyword = useMutation(api.keywords.remove);
+  const reorderKeywords = useMutation(api.keywords.reorder);
 
   const [term, setTerm] = useState("");
   const [localVariant, setLocalVariant] = useState("");
   const [lowRisk, setLowRisk] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [localKeywords, setLocalKeywords] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (keywords) {
+      setLocalKeywords([...keywords].sort((a,b) => {
+        const orderA = a.order ?? Infinity;
+        const orderB = b.order ?? Infinity;
+        if (orderA !== orderB) return orderA - orderB;
+        return (b.performanceScore || 0) - (a.performanceScore || 0);
+      }));
+    }
+  }, [keywords]);
 
   if (clinic === undefined || keywords === undefined) {
     return <div className="p-8 text-neutral-400">Loading keywords...</div>;
@@ -69,6 +84,27 @@ export default function ClinicKeywordsPage() {
     }
   };
 
+  const onDragEnd = async (result: DropResult) => {
+    if (!result.destination) return;
+    
+    const items = Array.from(localKeywords);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+
+    setLocalKeywords(items);
+
+    const updates = items.map((item, index) => ({
+      keywordId: item._id,
+      order: index,
+    }));
+
+    try {
+      await reorderKeywords({ updates });
+    } catch {
+      toast.error("Failed to save new order");
+    }
+  };
+
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6">
       <div>
@@ -106,60 +142,82 @@ export default function ClinicKeywordsPage() {
 
         <div className="lg:col-span-3">
           <div className="bg-white border border-neutral-200 rounded-lg overflow-hidden shadow-sm">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-neutral-50 hover:bg-neutral-50">
-                  <TableHead>Term / Variant</TableHead>
-                  <TableHead>Performance</TableHead>
-                  <TableHead>Last Used</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {keywords.sort((a,b) => b.performanceScore - a.performanceScore).map((kw) => (
-                  <TableRow key={kw._id} className="hover:bg-neutral-50 transition-colors">
-                    <TableCell>
-                      <div className="font-medium text-neutral-900">{kw.term}</div>
-                      <div className="text-xs text-neutral-500">{kw.localVariant}</div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col">
-                         <span className="font-medium">{kw.performanceScore.toFixed(2)} score</span>
-                         <span className="text-xs text-neutral-500">{kw.timesUsed} uses</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-neutral-500">
-                      {kw.lastUsed ? new Date(kw.lastUsed).toLocaleDateString() : "Never"}
-                    </TableCell>
-                    <TableCell>
-                      {kw.paused ? (
-                        <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">Paused</Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">Active</Badge>
+            <DragDropContext onDragEnd={onDragEnd}>
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-neutral-50 hover:bg-neutral-50">
+                    <TableHead className="w-10"></TableHead>
+                    <TableHead>Term / Variant</TableHead>
+                    <TableHead>Performance</TableHead>
+                    <TableHead>Last Used</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <Droppable droppableId="keywords-list" direction="vertical">
+                  {(provided) => (
+                    <TableBody {...provided.droppableProps} ref={provided.innerRef}>
+                      {localKeywords.map((kw, index) => (
+                        <Draggable key={kw._id} draggableId={kw._id} index={index}>
+                          {(provided, snapshot) => (
+                            <TableRow 
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              className={`hover:bg-neutral-50 transition-colors ${snapshot.isDragging ? "bg-blue-50 shadow-md" : ""}`}
+                              style={{ ...provided.draggableProps.style }}
+                            >
+                              <TableCell className="w-10">
+                                <div {...provided.dragHandleProps} className="cursor-grab text-neutral-400 hover:text-neutral-600">
+                                  <GripVertical className="h-5 w-5" />
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="font-medium text-neutral-900">{kw.term}</div>
+                                <div className="text-xs text-neutral-500">{kw.localVariant}</div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{kw.performanceScore?.toFixed(2) || "0.00"} score</span>
+                                  <span className="text-xs text-neutral-500">{kw.timesUsed || 0} uses</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-neutral-500">
+                                {kw.lastUsed ? new Date(kw.lastUsed).toLocaleDateString() : "Never"}
+                              </TableCell>
+                              <TableCell>
+                                {kw.paused ? (
+                                  <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">Paused</Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">Active</Badge>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-2">
+                                  <Button variant="ghost" size="icon" onClick={() => togglePause(kw)} title={kw.paused ? "Resume" : "Pause"}>
+                                    {kw.paused ? <PlayCircle className="w-4 h-4 text-green-600" /> : <PauseCircle className="w-4 h-4 text-amber-600" />}
+                                  </Button>
+                                  <Button variant="ghost" size="icon" onClick={() => handleDelete(kw)} title="Delete">
+                                    <Trash2 className="w-4 h-4 text-red-500" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                      {localKeywords.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8 text-neutral-500">
+                            No keywords found. Add one to get started.
+                          </TableCell>
+                        </TableRow>
                       )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => togglePause(kw)} title={kw.paused ? "Resume" : "Pause"}>
-                          {kw.paused ? <PlayCircle className="w-4 h-4 text-green-600" /> : <PauseCircle className="w-4 h-4 text-amber-600" />}
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(kw)} title="Delete">
-                          <Trash2 className="w-4 h-4 text-red-500" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {keywords.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-neutral-500">
-                      No keywords found. Add one to get started.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                    </TableBody>
+                  )}
+                </Droppable>
+              </Table>
+            </DragDropContext>
           </div>
         </div>
       </div>
