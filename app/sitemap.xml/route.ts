@@ -24,10 +24,30 @@ export async function GET(req: Request) {
   if (!isMainDomain && hostname) {
     // CUSTOM DOMAIN CASE: Serve sitemap for a specific clinic
     try {
-      const clinic = await convex.query(api.clinics.getByDomain, { domain: hostname });
+      console.log(`[Sitemap] Custom domain detected: ${hostname}`);
+      
+      // Try to get clinic by exact domain match
+      let clinic = await convex.query(api.clinics.getByDomain, { domain: hostname });
+      
+      // If not found, try with www prefix
+      if (!clinic && !hostname.startsWith("www.")) {
+        const wwwDomain = `www.${hostname}`;
+        clinic = await convex.query(api.clinics.getByDomain, { domain: wwwDomain });
+        console.log(`[Sitemap] Tried www variant: ${wwwDomain} - ${clinic ? "Found" : "Not found"}`);
+      }
+      
+      // If still not found, try without www prefix
+      if (!clinic && hostname.startsWith("www.")) {
+        const noPrefixDomain = hostname.substring(4);
+        clinic = await convex.query(api.clinics.getByDomain, { domain: noPrefixDomain });
+        console.log(`[Sitemap] Tried non-www variant: ${noPrefixDomain} - ${clinic ? "Found" : "Not found"}`);
+      }
       
       if (clinic) {
+        console.log(`[Sitemap] Clinic found: ${clinic.name}`);
         const posts = await convex.query(api.posts.getPublishedByClinic, { clinicId: clinic._id });
+        console.log(`[Sitemap] Found ${posts.length} published posts`);
+        
         const baseUrl = `https://${hostname}`;
         
         const postUrls = posts.map(post => `
@@ -46,18 +66,23 @@ export async function GET(req: Request) {
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>${postUrls}
-</urlset>`.trim();
+</urlset>`;
+      } else {
+        console.warn(`[Sitemap] Clinic not found for domain: ${hostname}`);
       }
     } catch (error) {
-      console.error("Sitemap Generation Error:", error);
+      console.error("[Sitemap] Generation Error for custom domain:", error);
     }
   }
 
   // Fallback or Main Domain Case: Serve a general sitemap
   if (!sitemapXml) {
     try {
+      console.log("[Sitemap] Generating main/fallback sitemap");
       const clinics = await convex.query(api.clinics.getActive);
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${host}`;
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${hostname || "localhost"}`;
+      
+      console.log(`[Sitemap] Found ${clinics.length} active clinics`);
       
       const clinicUrls = clinics.map(clinic => `
   <url>
@@ -75,16 +100,39 @@ export async function GET(req: Request) {
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>${clinicUrls}
-</urlset>`.trim();
+</urlset>`;
     } catch (error) {
-      console.error("Main Sitemap Generation Error:", error);
-      return new Response("Error generating sitemap", { status: 500 });
+      console.error("[Sitemap] Main Sitemap Generation Error:", error);
+      // Return a minimal valid sitemap even on error
+      sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://${hostname || "localhost"}/</loc>
+    <lastmod>${new Date().toISOString()}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>`;
     }
+  }
+
+  // Ensure we always have valid XML
+  if (!sitemapXml) {
+    console.warn("[Sitemap] No sitemap generated, returning minimal sitemap");
+    sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://${hostname || "localhost"}/</loc>
+    <lastmod>${new Date().toISOString()}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>`;
   }
 
   return new Response(sitemapXml, {
     headers: {
-      "Content-Type": "application/xml",
+      "Content-Type": "application/xml; charset=utf-8",
       "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=59",
     },
   });

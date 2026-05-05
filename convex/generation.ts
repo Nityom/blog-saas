@@ -79,7 +79,7 @@ export const finalizeGeneration = internalMutation({
 
     const now = Date.now();
 
-    // 4. Generate schema markup (now includes FAQPage if FAQs detected + author)
+    // 4. Generate schema markup (now includes FAQPage if FAQs detected + author + E-A-T)
     const schemaMarkup = generateSchemaMarkup(
       {
         title: args.postData.title,
@@ -90,6 +90,9 @@ export const finalizeGeneration = internalMutation({
         excerpt: args.postData.excerpt,
         publishedAt: args.isRefresh ? undefined : now,
         updatedAt: args.isRefresh ? now : undefined,
+        content: args.postData.content,
+        authorPhotoUrl: clinic.authorPhotoUrl,
+        authorQualification: clinic.authorQualification,
       },
       { name: clinic.name, city: clinic.city },
       args.postData.content  // pass raw markdown for FAQ extraction

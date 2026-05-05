@@ -6,6 +6,7 @@ export interface SeoClinic {
   mainWebsiteUrl?: string;
   googleMapsUrl?: string;
   authorQualification?: string;
+  authorPhotoUrl?: string;
 }
 
 export interface SeoPost {
@@ -17,6 +18,9 @@ export interface SeoPost {
   keywordTerm: string;
   authorName?: string;
   excerpt?: string;
+  content?: string;
+  authorPhotoUrl?: string;
+  authorQualification?: string;
 }
 
 export function generateSlug(title: string, existingSlugs: string[]): string {
@@ -66,51 +70,94 @@ export function extractFaqsFromMarkdown(content: string): Array<{ question: stri
 
 export function generateSchemaMarkup(post: SeoPost, clinic: SeoClinic, contentMarkdown?: string): string {
   const faqs = contentMarkdown ? extractFaqsFromMarkdown(contentMarkdown) : [];
+  
+  // Calculate word count from markdown content
+  const wordCount = contentMarkdown ? contentMarkdown.split(/\s+/).length : 0;
+  
+  // Strip markdown from content for articleBody
+  const articleBody = contentMarkdown
+    ? contentMarkdown
+        .replace(/#+\s+/g, '')
+        .replace(/\*\*(.+?)\*\*/g, '$1')
+        .replace(/\*(.+?)\*/g, '$1')
+        .replace(/\[(.+?)\]\(.+?\)/g, '$1')
+        .trim()
+    : post.excerpt;
+  
+  // Extract top 5-7 keywords - include main keyword plus terms from content
+  const keywordsList = [
+    post.keywordTerm,
+    ...((contentMarkdown?.match(/\b([a-z]{4,})\b/gi) || []).slice(0, 5)),
+  ].filter((v, i, a) => a.indexOf(v) === i).slice(0, 7);
+
+  const authorSchema = post.authorName
+    ? {
+        "@type": "Person",
+        name: post.authorName,
+        jobTitle: post.authorQualification || "Dentist",
+        affiliation: {
+          "@type": "MedicalOrganization",
+          name: clinic.name,
+        },
+        ...(post.authorPhotoUrl && { image: post.authorPhotoUrl }),
+        worksFor: {
+          "@type": "MedicalOrganization",
+          name: clinic.name,
+          areaServed: clinic.city,
+        },
+      }
+    : {
+        "@type": "MedicalOrganization",
+        name: clinic.name,
+      };
 
   const blogPostingSchema: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "BlogPosting",
     headline: post.title,
     description: post.excerpt,
+    articleBody: articleBody,
+    wordCount: wordCount,
+    keywords: keywordsList.join(", "),
     datePublished: post.publishedAt ? new Date(post.publishedAt).toISOString() : undefined,
     dateModified: post.updatedAt
       ? new Date(post.updatedAt).toISOString()
       : post.publishedAt
       ? new Date(post.publishedAt).toISOString()
       : undefined,
-    image: post.imageUrl,
-    author: post.authorName
-      ? {
-          "@type": "Person",
-          name: post.authorName,
-          jobTitle: "Dentist",
-          worksFor: {
-            "@type": "MedicalOrganization",
-            name: clinic.name,
-          },
-        }
-      : {
-          "@type": "MedicalOrganization",
-          name: clinic.name,
-        },
+    image: [
+      {
+        "@type": "ImageObject",
+        url: post.imageUrl,
+        width: 1200,
+        height: 630,
+      },
+    ],
+    author: authorSchema,
     about: {
       "@type": "MedicalCondition",
       name: post.keywordTerm,
     },
+    inLanguage: "en-IN",
+    isAccessibleForFree: true,
     publisher: {
       "@type": "MedicalOrganization",
       name: clinic.name,
       address: {
         "@type": "PostalAddress",
         addressLocality: clinic.city,
+        addressCountry: "IN",
       },
+      ...(clinic.phone && { telephone: clinic.phone }),
     },
     mainEntityOfPage: {
       "@type": "WebPage",
     },
   };
 
-  // If we found FAQs, add FAQPage schema alongside BlogPosting
+  const schemas = [blogPostingSchema];
+
+  // Add FAQPage schema if FAQs found
   if (faqs.length > 0) {
     const faqSchema = {
       "@context": "https://schema.org",
@@ -124,11 +171,10 @@ export function generateSchemaMarkup(post: SeoPost, clinic: SeoClinic, contentMa
         },
       })),
     };
-    // Return as JSON array so both schemas go in a single <script> tag
-    return JSON.stringify([blogPostingSchema, faqSchema]);
+    schemas.push(faqSchema);
   }
 
-  return JSON.stringify(blogPostingSchema);
+  return JSON.stringify(schemas.length > 1 ? schemas : schemas[0]);
 }
 
 /**
@@ -175,11 +221,51 @@ export function addInternalLinks(
 }
 
 /**
+ * Generates BreadcrumbList schema for breadcrumb navigation.
+ * Improves SERP appearance and crawlability.
+ */
+export function generateBreadcrumbSchema(
+  clinicName: string,
+  clinicSlug: string,
+  postTitle: string,
+  postSlug: string,
+  basePath: string,
+  siteOrigin: string
+): string {
+  const breadcrumbs = [
+    {
+      "@type": "ListItem",
+      position: 1,
+      name: "Home",
+      item: `${siteOrigin}${basePath || "/"}`,
+    },
+    {
+      "@type": "ListItem",
+      position: 2,
+      name: clinicName,
+      item: `${siteOrigin}${basePath || "/"}`,
+    },
+    {
+      "@type": "ListItem",
+      position: 3,
+      name: postTitle,
+      item: `${siteOrigin}${basePath}/${postSlug}`,
+    },
+  ];
+
+  return JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: breadcrumbs,
+  });
+}
+
+/**
  * Generates LocalBusiness + MedicalOrganization schema for the blog site.
  * Place on every blog page (index + post) for local SEO signals.
  */
 export function generateLocalBusinessSchema(clinic: SeoClinic, blogUrl: string): string {
-  const schema = {
+  const schema: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": ["MedicalOrganization", "LocalBusiness"],
     name: clinic.name,
@@ -198,6 +284,24 @@ export function generateLocalBusinessSchema(clinic: SeoClinic, blogUrl: string):
       ...(clinic.mainWebsiteUrl ? [clinic.mainWebsiteUrl] : []),
       ...(clinic.googleMapsUrl ? [clinic.googleMapsUrl] : []),
     ],
+    knowsAbout: "Dentistry",
   };
+
+  // Add doctor/founder as staff member for E-A-T
+  if (clinic.authorQualification || clinic.authorPhotoUrl) {
+    schema.staff = [
+      {
+        "@type": "Person",
+        name: clinic.name.split(" ")[0], // Use first word of clinic name as doctor name
+        jobTitle: clinic.authorQualification || "Dentist",
+        ...(clinic.authorPhotoUrl && { image: clinic.authorPhotoUrl }),
+        affiliation: {
+          "@type": "MedicalOrganization",
+          name: clinic.name,
+        },
+      },
+    ];
+  }
+
   return JSON.stringify(schema);
 }

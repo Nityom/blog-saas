@@ -109,7 +109,7 @@ export default function ClinicDashboard() {
                   AI blog generation runs automatically every weekday.
                 </p>
                 <div className="text-xs text-blue-600/80 uppercase font-bold tracking-wider">Next Run</div>
-                <div className="font-medium text-blue-900 mt-1">Tomorrow, 12:00 PM IST</div>
+                <div className="font-medium text-blue-900 mt-1">Tomorrow, 09:00 PM IST</div>
              </CardContent>
            </Card>
         </div>

@@ -6,7 +6,7 @@ import { headers } from "next/headers";
 import { Metadata } from "next";
 import Link from "next/link";
 import { markdownToHtml } from "@/lib/markdown";
-import { generateLocalBusinessSchema } from "@/lib/seo";
+import { generateLocalBusinessSchema, generateBreadcrumbSchema } from "@/lib/seo";
 import PostViewTracker from "./PostViewTracker";
 import SharePostButton from "@/components/share-post-button";
 import { ArrowLeft, Phone, MapPin, MessageCircle } from "lucide-react";
@@ -42,15 +42,41 @@ export async function generateMetadata({ params }: { params: { clinicSlug: strin
   const post = await convex.query(api.posts.getBySlug, { clinicId: clinic._id, slug: params.postSlug });
   if (!post || post.status !== "published") return { title: "Post Not Found" };
 
+  const requestHeaders = headers();
+  const host = requestHeaders.get("host") || "";
+  const protocol = requestHeaders.get("x-forwarded-proto") || "https";
+  const isCustomDomain = !host.includes("localhost") && !host.includes("vercel.app") && !host.includes("vercel.pub");
+  const basePath = isCustomDomain ? "" : `/blog/${clinic.slug}`;
+  const siteOrigin = `${protocol}://${host}`;
+  const canonicalUrl = `${siteOrigin}${basePath}/${post.slug}`;
+
+  const publishedDate = post.publishedAt ? new Date(post.publishedAt).toISOString() : undefined;
+  const modifiedDate = post.updatedAt ? new Date(post.updatedAt).toISOString() : publishedDate;
+
   return {
     title: post.metaTitle || post.title,
     description: post.metaDesc || post.excerpt,
     icons: { icon: clinic.logoUrl || '/favicon.ico' },
+    robots: "index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1",
+    alternates: {
+      canonical: canonicalUrl,
+    },
     openGraph: {
       title: post.metaTitle || post.title,
       description: post.metaDesc || post.excerpt,
+      type: "article",
+      url: canonicalUrl,
       images: [post.imageUrl],
-    }
+      ...(publishedDate && { publishedTime: publishedDate }),
+      ...(modifiedDate && { modifiedTime: modifiedDate }),
+      authors: post.authorName ? [post.authorName] : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: post.metaTitle || post.title,
+      description: post.metaDesc || post.excerpt,
+      images: [post.imageUrl],
+    },
   };
 }
 
@@ -94,6 +120,15 @@ export default async function BlogPostPage({ params }: { params: { clinicSlug: s
     },
     blogUrl
   );
+  
+  const breadcrumbSchema = generateBreadcrumbSchema(
+    clinic.name,
+    clinic.slug,
+    post.title,
+    post.slug,
+    basePath,
+    siteOrigin
+  );
 
   const whatsappNumber = clinic.whatsappNumber || clinic.phone || "";
   const whatsappHref = whatsappNumber
@@ -106,6 +141,7 @@ export default async function BlogPostPage({ params }: { params: { clinicSlug: s
 
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: post.schemaMarkup || "{}" }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: localBusinessSchema }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: breadcrumbSchema }} />
 
       <header className="py-5 border-b border-neutral-200 bg-white sticky top-0 z-40">
         <div className="max-w-4xl mx-auto px-4">
