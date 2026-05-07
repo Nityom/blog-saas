@@ -6,7 +6,7 @@ import { headers } from "next/headers";
 import { Metadata } from "next";
 import Link from "next/link";
 import { markdownToHtml } from "@/lib/markdown";
-import { generateLocalBusinessSchema, generateBreadcrumbSchema } from "@/lib/seo";
+import { generateLocalBusinessSchema, generateBreadcrumbSchema, generateSchemaMarkup } from "@/lib/seo";
 import PostViewTracker from "./PostViewTracker";
 import SharePostButton from "@/components/share-post-button";
 import { ArrowLeft, Phone, MapPin, MessageCircle } from "lucide-react";
@@ -15,6 +15,13 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+
+function normalizeInternalLinks(content: string, clinicSlug: string, basePath: string) {
+  const targetBasePath = basePath || "";
+  return content
+    .replaceAll(`](/blog/${clinicSlug}/`, `](${targetBasePath}/`)
+    .replaceAll(`href="/blog/${clinicSlug}/`, `href="${targetBasePath}/`);
+}
 
 interface ClinicDoc {
   _id: Id<"clinics">;
@@ -108,7 +115,33 @@ export default async function BlogPostPage({ params }: { params: { clinicSlug: s
     relatedPosts = [...relatedPosts, ...additional];
   }
 
-  const contentHtml = markdownToHtml(post.content);
+  const normalizedContent = normalizeInternalLinks(post.content, clinic.slug, basePath);
+  const contentHtml = markdownToHtml(normalizedContent);
+  const articleSchema = generateSchemaMarkup(
+    {
+      title: post.title,
+      publishedAt: post.publishedAt,
+      updatedAt: post.updatedAt,
+      imageUrl: post.imageUrl,
+      slug: post.slug,
+      keywordTerm: post.title,
+      authorName: post.authorName,
+      excerpt: post.excerpt,
+      content: normalizedContent,
+      authorPhotoUrl: clinic.authorPhotoUrl,
+      authorQualification: clinic.authorQualification,
+    },
+    {
+      name: clinic.name,
+      city: clinic.city,
+      address: clinic.address,
+      phone: clinic.phone,
+      mainWebsiteUrl: clinic.mainWebsiteUrl,
+      authorQualification: clinic.authorQualification,
+      authorPhotoUrl: clinic.authorPhotoUrl,
+    },
+    normalizedContent
+  );
   const localBusinessSchema = generateLocalBusinessSchema(
     {
       name: clinic.name,
@@ -139,7 +172,7 @@ export default async function BlogPostPage({ params }: { params: { clinicSlug: s
     <div className="min-h-screen bg-white font-sans text-neutral-900">
       <PostViewTracker clinicId={clinic._id} postId={post._id} />
 
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: post.schemaMarkup || "{}" }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: articleSchema }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: localBusinessSchema }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: breadcrumbSchema }} />
 

@@ -48,10 +48,14 @@ export function generateSlug(title: string, existingSlugs: string[]): string {
  */
 export function extractFaqsFromMarkdown(content: string): Array<{ question: string; answer: string }> {
   const faqs: Array<{ question: string; answer: string }> = [];
+  const faqSectionMatch = content.match(/##\s+(?:frequently asked questions|faqs?|common questions)[^\n]*\n([\s\S]*)/i);
+  if (!faqSectionMatch) return faqs;
+
+  const faqSection = faqSectionMatch[1].split(/\n##\s+/)[0];
   // Match ### Question followed by answer paragraph
   const faqRegex = /###\s+(.+?)\n+([\s\S]+?)(?=\n###|\n##|$)/g;
   let match;
-  while ((match = faqRegex.exec(content)) !== null) {
+  while ((match = faqRegex.exec(faqSection)) !== null) {
     const question = match[1].trim();
     // Strip markdown from answer, take first paragraph only
     const answer = match[2]
