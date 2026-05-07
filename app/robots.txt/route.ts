@@ -14,7 +14,7 @@ Sitemap: ${protocol}://${host}/sitemap.xml
   return new Response(robotsTxt, {
     headers: {
       "Content-Type": "text/plain",
-      "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=59",
+      "Cache-Control": "no-store, no-cache, must-revalidate",
     },
   });
 }

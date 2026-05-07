@@ -145,7 +145,7 @@ export async function GET(req: Request) {
   return new Response(sitemapXml, {
     headers: {
       "Content-Type": "application/xml; charset=utf-8",
-      "Cache-Control": "public, s-maxage=300, stale-while-revalidate=59",
+      "Cache-Control": "no-store, no-cache, must-revalidate",
     },
   });
 }
