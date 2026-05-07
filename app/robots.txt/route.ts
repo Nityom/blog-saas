@@ -10,6 +10,7 @@ Allow: /
 
 Sitemap: ${protocol}://${host}/sitemap.xml
 Sitemap: ${protocol}://${host}/sitemap-index.xml
+Sitemap: ${protocol}://${host}/sitemap.txt
 `;
 
   return new Response(robotsTxt, {
