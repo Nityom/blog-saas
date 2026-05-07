@@ -113,3 +113,23 @@ export const cleanupAuthorNames = mutation({
     return fixedCount;
   },
 });
+
+export const syncMetaTitlesWithTitles = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const posts = await ctx.db.query("posts").collect();
+    let fixedCount = 0;
+
+    for (const post of posts) {
+      if (post.metaTitle !== post.title) {
+        await ctx.db.patch(post._id, {
+          metaTitle: post.title,
+          updatedAt: Date.now(),
+        });
+        fixedCount++;
+      }
+    }
+
+    return fixedCount;
+  },
+});

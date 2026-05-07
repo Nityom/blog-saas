@@ -54,7 +54,7 @@ export async function generateMetadata({ params }: { params: { clinicSlug: strin
   const modifiedDate = post.updatedAt ? new Date(post.updatedAt).toISOString() : publishedDate;
 
   return {
-    title: post.metaTitle || post.title,
+    title: { absolute: post.title },
     description: post.metaDesc || post.excerpt,
     icons: { icon: clinic.logoUrl || '/favicon.ico' },
     robots: "index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1",
@@ -62,7 +62,7 @@ export async function generateMetadata({ params }: { params: { clinicSlug: strin
       canonical: canonicalUrl,
     },
     openGraph: {
-      title: post.metaTitle || post.title,
+      title: post.title,
       description: post.metaDesc || post.excerpt,
       type: "article",
       url: canonicalUrl,
@@ -73,7 +73,7 @@ export async function generateMetadata({ params }: { params: { clinicSlug: strin
     },
     twitter: {
       card: "summary_large_image",
-      title: post.metaTitle || post.title,
+      title: post.title,
       description: post.metaDesc || post.excerpt,
       images: [post.imageUrl],
     },

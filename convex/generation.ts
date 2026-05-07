@@ -243,7 +243,7 @@ Then write the post following these rules:
       const h1Match = content.match(/^#\s+(.*)/m);
       const title = h1Match ? h1Match[1] : `${keyword.localVariant || keyword.term} at ${clinic.name}`;
 
-      const metaTitle = metaTitleMatch ? metaTitleMatch[1] : title;
+      const metaTitle = title;
       const metaDesc = metaDescMatch ? metaDescMatch[1] : `Learn about ${keyword.term} at ${clinic.name} in ${clinic.city}.`;
       const excerpt = excerptMatch ? excerptMatch[1] : truncateToSentence(content, 160);
       const readingTime = Math.ceil(getWordCount(content) / 200);
@@ -498,7 +498,7 @@ Use strict Markdown, blank lines between elements.`;
       const h1Match = content.match(/^#\s+(.*)/m);
       const title = h1Match ? h1Match[1] : `Custom Post for ${clinic.name}`;
 
-      const metaTitle = metaTitleMatch ? metaTitleMatch[1] : title;
+      const metaTitle = title;
       const metaDesc = metaDescMatch ? metaDescMatch[1] : `Learn more at ${clinic.name}.`;
       const excerpt = excerptMatch ? excerptMatch[1] : truncateToSentence(content, 160);
       const readingTime = Math.ceil(getWordCount(content) / 200);
@@ -607,7 +607,7 @@ Rules:
       const h1Match = content.match(/^#\s+(.*)/m);
       const title = h1Match ? h1Match[1] : post.title;
 
-      const metaTitle = metaTitleMatch ? metaTitleMatch[1] : post.metaTitle;
+      const metaTitle = title;
       const metaDesc = metaDescMatch ? metaDescMatch[1] : post.metaDesc;
       const excerpt = excerptMatch ? excerptMatch[1] : post.excerpt;
       const readingTime = Math.ceil(getWordCount(content) / 200);
@@ -666,4 +666,3 @@ export const refreshAllOldPosts = internalAction({
     );
   },
 });
-

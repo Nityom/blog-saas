@@ -3,6 +3,18 @@ import { api } from "@/convex/_generated/api";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+function escapeXml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
 export async function GET(req: Request) {
   // Get host with fallback to x-forwarded-host (common on Vercel)
   const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "";
@@ -52,7 +64,7 @@ export async function GET(req: Request) {
         
         const postUrls = posts.map(post => `
   <url>
-    <loc>${baseUrl}/${post.slug}</loc>
+    <loc>${escapeXml(`${baseUrl}/${post.slug}`)}</loc>
     <lastmod>${new Date(post.updatedAt || post.publishedAt || post.createdAt).toISOString()}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
@@ -61,7 +73,7 @@ export async function GET(req: Request) {
         sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>${baseUrl}/</loc>
+    <loc>${escapeXml(`${baseUrl}/`)}</loc>
     <lastmod>${new Date().toISOString()}</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
@@ -86,7 +98,7 @@ export async function GET(req: Request) {
       
       const clinicUrls = clinics.map(clinic => `
   <url>
-    <loc>${baseUrl}/blog/${clinic.slug}</loc>
+    <loc>${escapeXml(`${baseUrl}/blog/${clinic.slug}`)}</loc>
     <lastmod>${new Date(clinic.createdAt).toISOString()}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
@@ -95,7 +107,7 @@ export async function GET(req: Request) {
       sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>${baseUrl}/</loc>
+    <loc>${escapeXml(`${baseUrl}/`)}</loc>
     <lastmod>${new Date().toISOString()}</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
@@ -107,7 +119,7 @@ export async function GET(req: Request) {
       sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://${hostname || "localhost"}/</loc>
+    <loc>${escapeXml(`https://${hostname || "localhost"}/`)}</loc>
     <lastmod>${new Date().toISOString()}</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
@@ -122,7 +134,7 @@ export async function GET(req: Request) {
     sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://${hostname || "localhost"}/</loc>
+    <loc>${escapeXml(`https://${hostname || "localhost"}/`)}</loc>
     <lastmod>${new Date().toISOString()}</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
@@ -133,7 +145,7 @@ export async function GET(req: Request) {
   return new Response(sitemapXml, {
     headers: {
       "Content-Type": "application/xml; charset=utf-8",
-      "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=59",
+      "Cache-Control": "public, s-maxage=300, stale-while-revalidate=59",
     },
   });
 }

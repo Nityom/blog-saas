@@ -112,7 +112,7 @@ export const publishPost = action({
             slug: post.slug,
             featured_media: mediaId,
             meta: {
-              _yoast_wpseo_title: post.metaTitle,
+              _yoast_wpseo_title: post.title,
               _yoast_wpseo_metadesc: post.metaDesc,
             },
           }),
