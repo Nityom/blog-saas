@@ -9,6 +9,7 @@ export async function GET(req: Request) {
 Allow: /
 
 Sitemap: ${protocol}://${host}/sitemap.xml
+Sitemap: ${protocol}://${host}/sitemap-index.xml
 `;
 
   return new Response(robotsTxt, {
