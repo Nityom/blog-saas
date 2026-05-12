@@ -35,6 +35,15 @@ export default defineSchema({
     authorQualification: v.optional(v.string()),
     authorBio: v.optional(v.string()),
     authorPhotoUrl: v.optional(v.string()),
+    // Unique-content inputs (used by AI generation to avoid template
+    // duplication across clinics on the same network).
+    establishedYear: v.optional(v.number()),
+    uniqueSellingPoints: v.optional(v.array(v.string())), // ["in-house CBCT", "30-min implant procedure"]
+    equipmentBrands: v.optional(v.array(v.string())),     // ["Straumann", "Invisalign", "Sirona"]
+    neighborhoodLandmarks: v.optional(v.string()),        // free text: "Near Phoenix Mall, opp. HDFC Bank"
+    clinicFacts: v.optional(v.string()),                  // free-text bullet list of distinctive facts the AI must use
+    // Off-page SEO checklist progress: keys are item IDs, value is timestamp completed.
+    seoChecklist: v.optional(v.record(v.string(), v.number())),
     subscriptionStartDate: v.optional(v.string()),
     monthlyRate: v.optional(v.number()),
     lastPaidCycleStart: v.optional(v.number()),
@@ -53,10 +62,30 @@ export default defineSchema({
     lowRisk: v.boolean(),
     paused: v.boolean(),
     order: v.optional(v.number()),
+    // Topic clusters: pillar keywords have isPillar=true and no pillarKeywordId.
+    // Supporting keywords reference their pillar via pillarKeywordId and share `cluster`.
+    cluster: v.optional(v.string()),                    // human-readable cluster tag, e.g. "Root Canal"
+    pillarKeywordId: v.optional(v.id("keywords")),
+    isPillar: v.optional(v.boolean()),
+    // AI suggestion provenance (so operators can review where a keyword came from).
+    source: v.optional(v.union(
+      v.literal("manual"),
+      v.literal("ai_longtail"),
+      v.literal("gsc_almost_ranking"),
+      v.literal("seed")
+    )),
+    intent: v.optional(v.union(
+      v.literal("informational"),
+      v.literal("commercial"),
+      v.literal("transactional"),
+      v.literal("navigational")
+    )),
     createdAt: v.number(),
   })
     .index("by_clinic", ["clinicId"])
-    .index("by_clinic_and_performance", ["clinicId", "performanceScore"]),
+    .index("by_clinic_and_performance", ["clinicId", "performanceScore"])
+    .index("by_clinic_and_cluster", ["clinicId", "cluster"])
+    .index("by_pillar", ["pillarKeywordId"]),
 
   posts: defineTable({
     clinicId: v.id("clinics"),

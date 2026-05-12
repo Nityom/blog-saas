@@ -68,6 +68,11 @@ export const create = mutation({
     authorQualification: v.optional(v.string()),
     authorBio: v.optional(v.string()),
     authorPhotoUrl: v.optional(v.string()),
+    establishedYear: v.optional(v.number()),
+    uniqueSellingPoints: v.optional(v.array(v.string())),
+    equipmentBrands: v.optional(v.array(v.string())),
+    neighborhoodLandmarks: v.optional(v.string()),
+    clinicFacts: v.optional(v.string()),
     subscriptionStartDate: v.optional(v.string()),
     monthlyRate: v.optional(v.number()),
   },
@@ -123,6 +128,11 @@ export const update = mutation({
     authorQualification: v.optional(v.string()),
     authorBio: v.optional(v.string()),
     authorPhotoUrl: v.optional(v.string()),
+    establishedYear: v.optional(v.number()),
+    uniqueSellingPoints: v.optional(v.array(v.string())),
+    equipmentBrands: v.optional(v.array(v.string())),
+    neighborhoodLandmarks: v.optional(v.string()),
+    clinicFacts: v.optional(v.string()),
     subscriptionStartDate: v.optional(v.string()),
     monthlyRate: v.optional(v.number()),
     lastPaidCycleStart: v.optional(v.number()),
@@ -192,6 +202,31 @@ export const markPaid = mutation({
     await ctx.db.patch(args.clinicId, {
       lastPaidCycleStart: args.cycleStartTime,
     });
+  },
+});
+
+/**
+ * Toggle a single off-page SEO checklist item (e.g. "submitted to Practo").
+ * Items are stored as a record { itemId: completedAtMs }. Removing an item
+ * means it's not yet done.
+ */
+export const toggleSeoChecklistItem = mutation({
+  args: {
+    clinicId: v.id("clinics"),
+    itemId: v.string(),
+    completed: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const clinic = await ctx.db.get(args.clinicId);
+    if (!clinic) throw new Error("Clinic not found");
+
+    const existing = { ...(clinic.seoChecklist ?? {}) };
+    if (args.completed) {
+      existing[args.itemId] = Date.now();
+    } else {
+      delete existing[args.itemId];
+    }
+    await ctx.db.patch(args.clinicId, { seoChecklist: existing });
   },
 });
 

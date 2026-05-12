@@ -3,8 +3,9 @@ import { api } from "@/convex/_generated/api";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+// Allow CDN caching for 10 min so the sitemap is fast and crawl-friendly,
+// but still refreshes within minutes when new posts are published.
+export const revalidate = 600;
 
 function escapeXml(value: string) {
   return value
@@ -15,137 +16,118 @@ function escapeXml(value: string) {
     .replace(/'/g, "&apos;");
 }
 
+function urlEntry(loc: string, lastmod: string, changefreq: string, priority: string) {
+  return `
+  <url>
+    <loc>${escapeXml(loc)}</loc>
+    <lastmod>${lastmod}</lastmod>
+    <changefreq>${changefreq}</changefreq>
+    <priority>${priority}</priority>
+  </url>`;
+}
+
 export async function GET(req: Request) {
-  // Get host with fallback to x-forwarded-host (common on Vercel)
   const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "";
   const hostname = host.split(":")[0];
+  const protocol = req.headers.get("x-forwarded-proto") || "https";
 
-  // Detect if we are on a custom domain or the main domain
   const isLocal = hostname.includes("localhost") || hostname.includes("127.0.0.1");
   const isVercel = hostname.includes("vercel.app") || hostname.includes("vercel.pub");
-  
-  // Get the configured main app hostname
-  const appHostname = process.env.NEXT_PUBLIC_APP_URL 
-    ? new URL(process.env.NEXT_PUBLIC_APP_URL).hostname 
+  const appHostname = process.env.NEXT_PUBLIC_APP_URL
+    ? new URL(process.env.NEXT_PUBLIC_APP_URL).hostname
     : "";
-    
-  const isMainDomain = isLocal || isVercel || hostname === appHostname;
+  const isMainDomain = isLocal || isVercel || hostname === appHostname || !appHostname;
 
-  let sitemapXml = "";
+  let body = "";
 
-  if (!isMainDomain && hostname) {
-    // CUSTOM DOMAIN CASE: Serve sitemap for a specific clinic
-    try {
-      console.log(`[Sitemap] Custom domain detected: ${hostname}`);
-      
-      // Try to get clinic by exact domain match
+  try {
+    if (!isMainDomain && hostname) {
+      // ── Custom-domain case: list posts for that clinic only ─────────────
       let clinic = await convex.query(api.clinics.getByDomain, { domain: hostname });
-      
-      // If not found, try with www prefix
       if (!clinic && !hostname.startsWith("www.")) {
-        const wwwDomain = `www.${hostname}`;
-        clinic = await convex.query(api.clinics.getByDomain, { domain: wwwDomain });
-        console.log(`[Sitemap] Tried www variant: ${wwwDomain} - ${clinic ? "Found" : "Not found"}`);
+        clinic = await convex.query(api.clinics.getByDomain, { domain: `www.${hostname}` });
       }
-      
-      // If still not found, try without www prefix
       if (!clinic && hostname.startsWith("www.")) {
-        const noPrefixDomain = hostname.substring(4);
-        clinic = await convex.query(api.clinics.getByDomain, { domain: noPrefixDomain });
-        console.log(`[Sitemap] Tried non-www variant: ${noPrefixDomain} - ${clinic ? "Found" : "Not found"}`);
+        clinic = await convex.query(api.clinics.getByDomain, { domain: hostname.substring(4) });
       }
-      
+
       if (clinic) {
-        console.log(`[Sitemap] Clinic found: ${clinic.name}`);
+        const baseUrl = `${protocol}://${hostname}`;
         const posts = await convex.query(api.posts.getPublishedByClinic, { clinicId: clinic._id });
-        console.log(`[Sitemap] Found ${posts.length} published posts`);
-        
-        const baseUrl = `https://${hostname}`;
-        
-        const postUrls = posts.map(post => `
-  <url>
-    <loc>${escapeXml(`${baseUrl}/${post.slug}`)}</loc>
-    <lastmod>${new Date(post.updatedAt || post.publishedAt || post.createdAt).toISOString()}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
-  </url>`).join("");
-
-        sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>${escapeXml(`${baseUrl}/`)}</loc>
-    <lastmod>${new Date().toISOString()}</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
-  </url>${postUrls}
+        const entries = [
+          urlEntry(`${baseUrl}/`, new Date().toISOString(), "daily", "1.0"),
+          ...posts.map((p) =>
+            urlEntry(
+              `${baseUrl}/${p.slug}`,
+              new Date(p.updatedAt || p.publishedAt || p.createdAt).toISOString(),
+              "weekly",
+              "0.8",
+            ),
+          ),
+        ].join("");
+        body = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${entries}
 </urlset>`;
-      } else {
-        console.warn(`[Sitemap] Clinic not found for domain: ${hostname}`);
       }
-    } catch (error) {
-      console.error("[Sitemap] Generation Error for custom domain:", error);
     }
-  }
 
-  // Fallback or Main Domain Case: Serve a general sitemap
-  if (!sitemapXml) {
-    try {
-      console.log("[Sitemap] Generating main/fallback sitemap");
+    if (!body) {
+      // ── Main / platform domain: list every clinic blog AND every post ───
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${protocol}://${hostname || "localhost"}`;
       const clinics = await convex.query(api.clinics.getActive);
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${hostname || "localhost"}`;
-      
-      console.log(`[Sitemap] Found ${clinics.length} active clinics`);
-      
-      const clinicUrls = clinics.map(clinic => `
-  <url>
-    <loc>${escapeXml(`${baseUrl}/blog/${clinic.slug}`)}</loc>
-    <lastmod>${new Date(clinic.createdAt).toISOString()}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-  </url>`).join("");
 
-      sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>${escapeXml(`${baseUrl}/`)}</loc>
-    <lastmod>${new Date().toISOString()}</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
-  </url>${clinicUrls}
-</urlset>`;
-    } catch (error) {
-      console.error("[Sitemap] Main Sitemap Generation Error:", error);
-      // Return a minimal valid sitemap even on error
-      sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>${escapeXml(`https://${hostname || "localhost"}/`)}</loc>
-    <lastmod>${new Date().toISOString()}</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
-  </url>
+      // Only enumerate posts for clinics whose canonical home is the platform.
+      // Clinics with a custom domain expose their posts via that domain's own
+      // sitemap — listing them here too would create duplicate URLs in
+      // Google's index and split ranking signal.
+      const hostedClinics = clinics.filter(
+        (c) => c.integrationMethod === "hosted" && !c.customDomain,
+      );
+
+      const postUrlChunks = await Promise.all(
+        hostedClinics.map(async (clinic) => {
+          const posts = await convex.query(api.posts.getPublishedByClinic, {
+            clinicId: clinic._id,
+          });
+          return posts.map((p) =>
+            urlEntry(
+              `${baseUrl}/blog/${clinic.slug}/${p.slug}`,
+              new Date(p.updatedAt || p.publishedAt || p.createdAt).toISOString(),
+              "weekly",
+              "0.8",
+            ),
+          );
+        }),
+      );
+
+      const entries = [
+        urlEntry(`${baseUrl}/`, new Date().toISOString(), "daily", "1.0"),
+        ...hostedClinics.map((c) =>
+          urlEntry(`${baseUrl}/blog/${c.slug}`, new Date(c.createdAt).toISOString(), "weekly", "0.7"),
+        ),
+        ...postUrlChunks.flat(),
+      ].join("");
+
+      body = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${entries}
 </urlset>`;
     }
-  }
-
-  // Ensure we always have valid XML
-  if (!sitemapXml) {
-    console.warn("[Sitemap] No sitemap generated, returning minimal sitemap");
-    sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>${escapeXml(`https://${hostname || "localhost"}/`)}</loc>
-    <lastmod>${new Date().toISOString()}</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
-  </url>
+  } catch (error) {
+    console.error("[Sitemap] generation error:", error);
+    body = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urlEntry(
+      `${protocol}://${hostname || "localhost"}/`,
+      new Date().toISOString(),
+      "daily",
+      "1.0",
+    )}
 </urlset>`;
   }
 
-  return new Response(sitemapXml, {
+  return new Response(body, {
     headers: {
       "Content-Type": "application/xml; charset=utf-8",
-      "Cache-Control": "no-store, no-cache, must-revalidate",
+      "Cache-Control": "public, max-age=600, s-maxage=600, stale-while-revalidate=3600",
     },
   });
 }

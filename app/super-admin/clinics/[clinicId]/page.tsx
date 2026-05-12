@@ -12,10 +12,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
-import { ArrowLeft, PlayCircle, MapPin, Phone, MessageCircle, User, Globe, Link2, Copy, ExternalLink, Share2, ShieldCheck, ShieldAlert } from "lucide-react";
+import { ArrowLeft, PlayCircle, MapPin, Phone, MessageCircle, User, Globe, Link2, Copy, ExternalLink, Share2, ShieldCheck, ShieldAlert, Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { SeoChecklist } from "./SeoChecklist";
 
 interface ClinicData {
   _id: Id<"clinics">;
@@ -37,6 +38,12 @@ interface ClinicData {
   authorQualification?: string;
   authorBio?: string;
   authorPhotoUrl?: string;
+  establishedYear?: number;
+  uniqueSellingPoints?: string[];
+  equipmentBrands?: string[];
+  neighborhoodLandmarks?: string;
+  clinicFacts?: string;
+  seoChecklist?: Record<string, number>;
   doctorNames?: string[];
   services?: string[];
   metaPageId?: string;
@@ -110,6 +117,11 @@ export default function ClinicDetailsPage() {
     customDomain: "",
     doctorNames: "",
     services: "",
+    establishedYear: "",
+    uniqueSellingPoints: "",
+    equipmentBrands: "",
+    neighborhoodLandmarks: "",
+    clinicFacts: "",
   });
 
   const [isSavingSeo, setIsSavingSeo] = useState(false);
@@ -133,6 +145,11 @@ export default function ClinicDetailsPage() {
         customDomain: clinic.customDomain || "",
         doctorNames: clinic.doctorNames?.join(", ") || "",
         services: clinic.services?.join(", ") || "",
+        establishedYear: clinic.establishedYear ? String(clinic.establishedYear) : "",
+        uniqueSellingPoints: clinic.uniqueSellingPoints?.join(", ") || "",
+        equipmentBrands: clinic.equipmentBrands?.join(", ") || "",
+        neighborhoodLandmarks: clinic.neighborhoodLandmarks || "",
+        clinicFacts: clinic.clinicFacts || "",
       });
       setSubscriptionStartDate(clinic.subscriptionStartDate || "");
       setMonthlyRate(clinic.monthlyRate ?? "");
@@ -166,11 +183,15 @@ export default function ClinicDetailsPage() {
   const handleSaveSeo = async () => {
     setIsSavingSeo(true);
     try {
+      const { establishedYear, uniqueSellingPoints, equipmentBrands, doctorNames, services, ...rest } = seoData;
       await updateClinic({
         clinicId: clinic._id,
-        ...seoData,
-        doctorNames: seoData.doctorNames.split(",").map(d => d.trim()).filter(Boolean),
-        services: seoData.services.split(",").map(s => s.trim()).filter(Boolean),
+        ...rest,
+        doctorNames: doctorNames.split(",").map(d => d.trim()).filter(Boolean),
+        services: services.split(",").map(s => s.trim()).filter(Boolean),
+        ...(establishedYear ? { establishedYear: Number(establishedYear) } : {}),
+        uniqueSellingPoints: uniqueSellingPoints.split(",").map(s => s.trim()).filter(Boolean),
+        equipmentBrands: equipmentBrands.split(",").map(s => s.trim()).filter(Boolean),
       });
       toast.success("SEO & Profile data updated!");
     } catch {
@@ -290,6 +311,7 @@ export default function ClinicDetailsPage() {
         <TabsList className="flex flex-col bg-white border border-neutral-200 p-2 rounded-lg w-full md:w-48 xl:w-56 h-fit items-stretch justify-start">
           <TabsTrigger value="overview" className="justify-start">Overview</TabsTrigger>
           <TabsTrigger value="seo" className="justify-start">SEO & Profile</TabsTrigger>
+          <TabsTrigger value="checklist" className="justify-start">SEO Checklist</TabsTrigger>
           <TabsTrigger value="posts" className="justify-start">Posts ({posts.length})</TabsTrigger>
           <TabsTrigger value="keywords" className="justify-start">Keywords ({keywords.length})</TabsTrigger>
           <TabsTrigger value="social" className="justify-start">Social Media</TabsTrigger>
@@ -410,11 +432,57 @@ export default function ClinicDetailsPage() {
             </CardContent>
           </Card>
 
+          <Card className="bg-white border-amber-200 shadow-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-neutral-900">
+                <Sparkles className="w-5 h-5 text-amber-500" />
+                Unique Clinic Facts <span className="text-xs font-medium text-amber-600">(critical for ranking)</span>
+              </CardTitle>
+              <CardDescription>
+                The AI feeds these into every blog post so each clinic on the network produces structurally different content. Without 2+ filled, posts read as generic — Google penalises duplicate-feeling articles across multi-tenant networks.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Year Established</Label>
+                  <Input name="establishedYear" type="number" value={seoData.establishedYear} onChange={handleSeoChange} placeholder="2012" className="bg-white" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Neighborhood Landmarks</Label>
+                  <Input name="neighborhoodLandmarks" value={seoData.neighborhoodLandmarks} onChange={handleSeoChange} placeholder="Near Phoenix Mall, opp. HDFC Bank" className="bg-white" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Unique Selling Points (comma separated)</Label>
+                <Input name="uniqueSellingPoints" value={seoData.uniqueSellingPoints} onChange={handleSeoChange} placeholder="in-house CBCT, same-day implants, sedation dentistry" className="bg-white" />
+              </div>
+              <div className="space-y-2">
+                <Label>Equipment / Brands Used (comma separated)</Label>
+                <Input name="equipmentBrands" value={seoData.equipmentBrands} onChange={handleSeoChange} placeholder="Straumann, Invisalign, Sirona, NSK" className="bg-white" />
+              </div>
+              <div className="space-y-2">
+                <Label>Other Distinctive Facts (free text, one per line)</Label>
+                <Textarea
+                  name="clinicFacts"
+                  value={seoData.clinicFacts}
+                  onChange={handleSeoChange}
+                  placeholder={`- Treated 5,000+ patients since opening\n- Specialised in pediatric dentistry\n- Free initial consultation`}
+                  className="bg-white min-h-[110px] font-mono text-xs"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
           <div className="flex justify-end">
             <Button onClick={handleSaveSeo} disabled={isSavingSeo} className="bg-blue-600 hover:bg-blue-700 text-white min-w-[150px]">
               {isSavingSeo ? "Saving..." : "Save SEO Settings"}
             </Button>
           </div>
+        </TabsContent>
+
+        <TabsContent value="checklist" className="flex-1">
+          <SeoChecklist clinicId={clinic._id} completed={clinic.seoChecklist || {}} />
         </TabsContent>
 
         <TabsContent value="posts" className="flex-1">

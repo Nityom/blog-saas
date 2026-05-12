@@ -45,6 +45,12 @@ export default function NewClinicPage() {
     authorQualification: "",
     authorBio: "",
     authorPhotoUrl: "",
+    // Unique-content inputs (defeat AI template duplication across clinics)
+    establishedYear: "",
+    uniqueSellingPoints: "",
+    equipmentBrands: "",
+    neighborhoodLandmarks: "",
+    clinicFacts: "",
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -99,6 +105,11 @@ export default function NewClinicPage() {
         authorQualification: formData.authorQualification,
         authorBio: formData.authorBio,
         authorPhotoUrl: formData.authorPhotoUrl,
+        ...(formData.establishedYear ? { establishedYear: Number(formData.establishedYear) } : {}),
+        uniqueSellingPoints: formData.uniqueSellingPoints.split(",").map(s => s.trim()).filter(Boolean),
+        equipmentBrands: formData.equipmentBrands.split(",").map(s => s.trim()).filter(Boolean),
+        neighborhoodLandmarks: formData.neighborhoodLandmarks,
+        clinicFacts: formData.clinicFacts,
       });
 
       await seedKeywords({ clinicId, city: formData.city });
@@ -213,6 +224,38 @@ export default function NewClinicPage() {
               <div className="space-y-2">
                 <Label htmlFor="authorBio" className="text-neutral-700">Short Bio</Label>
                 <Textarea id="authorBio" name="authorBio" value={formData.authorBio} onChange={handleChange} placeholder="1-2 sentences about the doctor's experience." className="bg-white border-neutral-300 min-h-[80px]" />
+              </div>
+            </div>
+
+            <div className="space-y-4 pt-6 border-t border-neutral-100">
+              <div className="flex items-center gap-2 text-blue-600">
+                <User className="w-5 h-5" />
+                <h3 className="font-bold text-neutral-900">Unique Clinic Facts <span className="text-xs font-medium text-amber-600">(critical for SEO)</span></h3>
+              </div>
+              <p className="text-xs text-neutral-500 -mt-2">
+                These fields stop the AI from writing identical posts across different clinics on the same keywords — the #1 reason multi-tenant blog networks fail to rank. Fill at least 2 of these.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="establishedYear" className="text-neutral-700">Year Established</Label>
+                  <Input id="establishedYear" name="establishedYear" type="number" value={formData.establishedYear} onChange={handleChange} placeholder="e.g. 2012" className="bg-white border-neutral-300" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="neighborhoodLandmarks" className="text-neutral-700">Neighborhood Landmarks</Label>
+                  <Input id="neighborhoodLandmarks" name="neighborhoodLandmarks" value={formData.neighborhoodLandmarks} onChange={handleChange} placeholder="Near Phoenix Mall, opp. HDFC Bank" className="bg-white border-neutral-300" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="uniqueSellingPoints" className="text-neutral-700">Unique Selling Points (comma separated)</Label>
+                <Input id="uniqueSellingPoints" name="uniqueSellingPoints" value={formData.uniqueSellingPoints} onChange={handleChange} placeholder="in-house CBCT, same-day implants, sedation dentistry" className="bg-white border-neutral-300" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="equipmentBrands" className="text-neutral-700">Equipment / Brands Used (comma separated)</Label>
+                <Input id="equipmentBrands" name="equipmentBrands" value={formData.equipmentBrands} onChange={handleChange} placeholder="Straumann, Invisalign, Sirona, NSK" className="bg-white border-neutral-300" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="clinicFacts" className="text-neutral-700">Other Distinctive Facts (free text, one per line)</Label>
+                <Textarea id="clinicFacts" name="clinicFacts" value={formData.clinicFacts} onChange={handleChange} placeholder={`- Treated 5,000+ patients since opening\n- Specialised in pediatric dentistry\n- Free initial consultation`} className="bg-white border-neutral-300 min-h-[110px] font-mono text-xs" />
               </div>
             </div>
 

@@ -6,6 +6,8 @@ import { fetchPexelsImage } from "../lib/pexels";
 import { generateSlug, generateSchemaMarkup, addInternalLinks, toHashtag } from "../lib/seo";
 import { selectNextKeyword } from "../lib/keywords";
 import { markdownToHtml, getWordCount, truncateToSentence } from "../lib/markdown";
+import { pingIndexNow, buildPostUrls } from "../lib/indexing";
+import { pickRotation, buildClinicFactsBlock } from "../lib/contentVariation";
 import { internal, api } from "./_generated/api";
 import { Doc, Id } from "./_generated/dataModel";
 
@@ -25,7 +27,17 @@ export const prepareGeneration = internalMutation({
       return null;
     }
 
-    // 3. Create post record
+    // 3. Count existing posts so the prompt can deterministically rotate
+    //    outline templates and content angles. This is the key lever that
+    //    breaks template duplication across clinics writing on the same
+    //    keywords.
+    const existingPosts = await ctx.db
+      .query("posts")
+      .withIndex("by_clinic", (q) => q.eq("clinicId", args.clinicId))
+      .collect();
+    const postIndex = existingPosts.length;
+
+    // 4. Create post record
     const postId = await ctx.db.insert("posts", {
       clinicId: args.clinicId,
       keywordId: keyword._id as any,
@@ -45,7 +57,7 @@ export const prepareGeneration = internalMutation({
       createdAt: Date.now(),
     });
 
-    return { postId, keyword };
+    return { postId, keyword, postIndex };
   },
 });
 
@@ -185,7 +197,7 @@ export const generatePost = action({
       console.warn("No available keyword for clinic:", clinic.name);
       return;
     }
-    const { postId, keyword } = prepResult;
+    const { postId, keyword, postIndex } = prepResult;
 
     try {
       // PASS 1 — DRAFT
@@ -196,6 +208,39 @@ export const generatePost = action({
       const authorName = rawDoctorName.toLowerCase().startsWith("dr.") 
         ? rawDoctorName 
         : `Dr. ${rawDoctorName}`;
+
+      // Deterministic rotation: same (clinic, postIndex) always produces the
+      // same outline + angle so retries stay stable, but successive posts and
+      // sibling clinics get DIFFERENT structures — this is what defeats the
+      // "every clinic publishes the same article" duplication problem.
+      const rotation = pickRotation(`${clinic.slug}::${keyword.term}`, postIndex);
+      const renderedOutline = rotation.outline.outline
+        .replace(/\{city\}/g, clinic.city)
+        .replace(/\{clinic\}/g, clinic.name)
+        .replace(/\{keyword\}/g, keyword.localVariant || keyword.term);
+      const factsBlock = buildClinicFactsBlock(clinic);
+
+      // Cluster-aware internal linking: if this keyword sits in a topic
+      // cluster, surface the pillar + sibling posts so the AI can link them
+      // naturally inside the article body. This is how topical authority
+      // compounds across a site.
+      const clusterCtx = await ctx.runQuery(internal.generationHelpers.getClusterContext, {
+        clinicId: args.clinicId,
+        keywordId: keyword._id as Id<"keywords">,
+      });
+      const linkBase = clinic.customDomain
+        ? `https://${clinic.customDomain}`
+        : `${process.env.NEXT_PUBLIC_APP_URL || ""}/blog/${clinic.slug}`;
+      const clusterBlock = clusterCtx.cluster
+        ? `--- TOPIC CLUSTER: "${clusterCtx.cluster}" ---
+${clusterCtx.isPillar ? `This article is the PILLAR for the "${clusterCtx.cluster}" cluster. It must be the most comprehensive piece on this topic and link OUT to supporting articles below.` : `This is a SUPPORTING article in the "${clusterCtx.cluster}" cluster. It MUST link back to the pillar article naturally.`}
+${clusterCtx.pillar ? `\nPILLAR ARTICLE (link to this with anchor text close to "${clusterCtx.pillar.term}"):\n- ${clusterCtx.pillar.title} → ${linkBase}/${clusterCtx.pillar.slug}` : ""}
+${clusterCtx.siblings.length > 0 ? `\nSIBLING ARTICLES (link to 1-3 of these inline where contextually relevant; use natural anchor text, NOT the URL):
+${clusterCtx.siblings.map((s) => `- "${s.title}" → ${linkBase}/${s.slug}`).join("\n")}` : ""}
+
+When you reference these, use markdown links like [natural anchor text](url). Do NOT add a generic "related posts" section — weave them into paragraphs.
+`
+        : "";
 
       const userPrompt1 = `Write a complete, in-depth SEO-optimized blog post.
 
@@ -212,25 +257,36 @@ Target patients: aged ${clinic.targetAge}
 Services: ${clinic.services.join(", ")}
 Booking URL: ${clinic.bookingUrl}
 
+--- CONTENT ANGLE (mandatory) ---
+${rotation.angle.instruction}
+
+--- REQUIRED H2 OUTLINE (use these exact section headings, in order, adapted naturally to the topic) ---
+${renderedOutline}
+
+${factsBlock ? `--- UNIQUE CLINIC FACTS — you MUST naturally weave these into the article so it doesn't read like generic copy ---
+${factsBlock}
+` : ""}
+${clusterBlock}
 At the very top include these HTML comments EXACTLY:
-<!-- metaTitle: your meta title here (max 60 chars) -->
-<!-- metaDesc: your meta description here (max 155 chars) -->
+<!-- metaTitle: your meta title here (max 60 chars, must include the primary keyword) -->
+<!-- metaDesc: your meta description here (max 155 chars, includes keyword + a CTA verb) -->
 <!-- excerpt: one to two sentence post summary -->
 
 Then write the post following these rules:
 - MUST use strict Markdown formatting.
 - **CRITICAL**: Leave a blank empty line between EVERY paragraph, heading, and list.
 - Use \`#\` for the main H1 title (include city and clinic name naturally).
-- Use \`##\` for 5 to 6 H2 section headings covering the topic thoroughly.
+- Use \`##\` for the H2 sections from the outline above.
 - Use bullet points (\`-\` or \`*\`) to break up text and present lists.
 - Use **bold** for key terms and *italics* for important points.
 - **Write 1,200 to 1,500 words total** — this is critical for ranking.
 - Simple language, no unexplained medical jargon.
-- Include real, helpful, specific information a patient would actually want to know (costs, procedure steps, recovery, what to ask your dentist).
-- FAQ block with 3 to 4 patient questions using \`###\` for each question heading.
+- Include real, helpful, specific information a patient would actually want (costs in INR for India where relevant, procedure steps, recovery, what to ask your dentist).
+- FAQ block under the final H2 with 3 to 4 patient questions using \`###\` for each question heading.
 - Author credit line at the bottom: "*Written by ${authorName}, ${clinic.authorQualification || 'Dentist'} at ${clinic.name}, ${clinic.city}.*"
 - Final CTA paragraph mentioning ${clinic.name} with a link to ${clinic.bookingUrl}. Mention the location (${clinic.address || clinic.city}) naturally.
-- Naturally use the keyword and local city name (${clinic.city}) throughout.`;
+- Naturally use the keyword and local city name (${clinic.city}) throughout, but never keyword-stuff (max ~1.5% density).
+- Do NOT invent patient testimonials, fake statistics, medical guarantees, or specific success rates.`;
 
       const draftOutput = await generateText(systemPrompt1, userPrompt1, 2200, 2, "anthropic/claude-haiku-4-5");
 
@@ -243,7 +299,9 @@ Then write the post following these rules:
       const h1Match = content.match(/^#\s+(.*)/m);
       const title = h1Match ? h1Match[1] : `${keyword.localVariant || keyword.term} at ${clinic.name}`;
 
-      const metaTitle = title;
+      // Use the AI-generated SEO title when present — it's tuned to ≤60 chars
+      // for SERP display. Fall back to the (often longer) H1 only if missing.
+      const metaTitle = metaTitleMatch?.[1]?.trim() || title;
       const metaDesc = metaDescMatch ? metaDescMatch[1] : `Learn about ${keyword.term} at ${clinic.name} in ${clinic.city}.`;
       const excerpt = excerptMatch ? excerptMatch[1] : truncateToSentence(content, 160);
       const readingTime = Math.ceil(getWordCount(content) / 200);
@@ -382,6 +440,21 @@ Rules:
         }
       });
 
+      // Best-effort: tell IndexNow (Bing/Yandex/etc.) the new URL exists so it
+      // gets crawled in minutes instead of days. Google relies on the sitemap
+      // + Search Console for fast indexing.
+      if (finalStatus === "published") {
+        const persisted = await ctx.runQuery(internal.generation.getPostById, { postId });
+        if (persisted) {
+          const urls = buildPostUrls({
+            customDomain: clinic.customDomain,
+            clinicSlug: clinic.slug,
+            postSlug: persisted.slug,
+          });
+          await pingIndexNow(urls);
+        }
+      }
+
     } catch (error: any) {
       console.error(error);
       await ctx.runMutation(internal.generation.logFailure, {
@@ -498,7 +571,7 @@ Use strict Markdown, blank lines between elements.`;
       const h1Match = content.match(/^#\s+(.*)/m);
       const title = h1Match ? h1Match[1] : `Custom Post for ${clinic.name}`;
 
-      const metaTitle = title;
+      const metaTitle = metaTitleMatch?.[1]?.trim() || title;
       const metaDesc = metaDescMatch ? metaDescMatch[1] : `Learn more at ${clinic.name}.`;
       const excerpt = excerptMatch ? excerptMatch[1] : truncateToSentence(content, 160);
       const readingTime = Math.ceil(getWordCount(content) / 200);
@@ -577,6 +650,7 @@ export const refreshPost = internalAction({
       : `Dr. ${rawDoctorName}`;
 
     const systemPrompt = `You are an SEO dental content writer. Rewrite and improve this blog post to be fresher, more detailed, and better optimised. Return ONLY markdown. No explanation.`;
+    const factsBlock = buildClinicFactsBlock(clinic);
     const userPrompt = `Rewrite and significantly improve this existing dental blog post. Keep the same topic but make it more detailed, current, and helpful.
 
 Keyword: ${keyword.localVariant || keyword.term}
@@ -584,11 +658,11 @@ Clinic: ${clinic.name}, ${clinic.city}
 Author: ${authorName}
 Booking URL: ${clinic.bookingUrl}
 
-Existing content to improve:
+${factsBlock ? `Unique clinic facts to weave in naturally:\n${factsBlock}\n\n` : ""}Existing content to improve:
 ${post.content}
 
 Rules:
-- At the top include: <!-- metaTitle: ... --> <!-- metaDesc: ... --> <!-- excerpt: ... -->
+- At the top include: <!-- metaTitle: ... (max 60 chars, must include the keyword) --> <!-- metaDesc: ... (max 155 chars) --> <!-- excerpt: ... -->
 - Write 1,200 to 1,500 words
 - Use ## for 5-6 H2 headings
 - FAQ block with ### for 3-4 questions
@@ -607,7 +681,7 @@ Rules:
       const h1Match = content.match(/^#\s+(.*)/m);
       const title = h1Match ? h1Match[1] : post.title;
 
-      const metaTitle = title;
+      const metaTitle = metaTitleMatch?.[1]?.trim() || title;
       const metaDesc = metaDescMatch ? metaDescMatch[1] : post.metaDesc;
       const excerpt = excerptMatch ? excerptMatch[1] : post.excerpt;
       const readingTime = Math.ceil(getWordCount(content) / 200);

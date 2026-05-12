@@ -1,1 +1,1 @@
-export { dynamic, revalidate, GET } from "../sitemap.xml/route";
+export { revalidate, GET } from "../sitemap.xml/route";

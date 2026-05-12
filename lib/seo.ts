@@ -309,3 +309,33 @@ export function generateLocalBusinessSchema(clinic: SeoClinic, blogUrl: string):
 
   return JSON.stringify(schema);
 }
+
+/**
+ * Generates HowTo schema when the post has a numbered procedure / steps
+ * section. This unlocks Google's step-by-step rich result with the clinic's
+ * URL — strong CTR boost for "how to" / "what to expect" queries.
+ *
+ * Pass the result of `extractHowToSteps()` from lib/markdown.
+ */
+export function generateHowToSchema(opts: {
+  name: string;
+  description?: string;
+  imageUrl?: string;
+  totalTimeISO?: string; // e.g. "PT45M"
+  steps: { name: string; text: string }[];
+}): string {
+  return JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    name: opts.name,
+    ...(opts.description && { description: opts.description }),
+    ...(opts.imageUrl && { image: opts.imageUrl }),
+    ...(opts.totalTimeISO && { totalTime: opts.totalTimeISO }),
+    step: opts.steps.map((s, i) => ({
+      "@type": "HowToStep",
+      position: i + 1,
+      name: s.name,
+      text: s.text,
+    })),
+  });
+}

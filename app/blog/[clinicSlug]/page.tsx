@@ -9,10 +9,11 @@ import { generateLocalBusinessSchema } from "@/lib/seo";
 import SharePostButton from "@/components/share-post-button";
 import { Phone, MapPin } from "lucide-react";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+
+// ISR: rebuild every 5 min. New posts surface in the index quickly while
+// keeping responses fast and CDN-cacheable for good Core Web Vitals.
+export const revalidate = 300;
 
 interface ClinicDoc {
   _id: Id<"clinics">;
@@ -33,11 +34,24 @@ interface ClinicDoc {
 export async function generateMetadata({ params }: { params: { clinicSlug: string } }): Promise<Metadata> {
   const clinic = await convex.query(api.clinics.getBySlug, { slug: params.clinicSlug });
   if (!clinic) return { title: "Blog Not Found" };
+
+  // Same single-canonical strategy as individual post pages.
+  const canonicalUrl = clinic.customDomain
+    ? `https://${clinic.customDomain}/`
+    : `${(process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "")}/blog/${clinic.slug}`;
+
   return {
-    title: `Blog | ${clinic.name}`,
+    title: `${clinic.name} Blog | Dental Tips & News from ${clinic.city}`,
     description: `Read the latest dental advice and news from ${clinic.name} in ${clinic.city}.`,
     icons: {
       icon: clinic.logoUrl || '/favicon.ico',
+    },
+    alternates: { canonical: canonicalUrl },
+    openGraph: {
+      title: `${clinic.name} Blog`,
+      description: `Dental insights from ${clinic.name}, ${clinic.city}.`,
+      type: "website",
+      url: canonicalUrl,
     },
   };
 }

@@ -11,9 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Trash2, PauseCircle, PlayCircle, Plus, GripVertical } from "lucide-react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
+import AiSuggestPanel from "./AiSuggestPanel";
+import ClustersPanel from "./ClustersPanel";
 
 export default function ClinicKeywordsPage() {
   const params = useParams();
@@ -109,9 +112,25 @@ export default function ClinicKeywordsPage() {
     <div className="p-8 max-w-6xl mx-auto space-y-6">
       <div>
         <h2 className="text-2xl font-bold tracking-tight text-neutral-900">Keyword Manager</h2>
-        <p className="text-neutral-500">Add and manage the keywords the AI uses to generate blog posts.</p>
+        <p className="text-neutral-500">Add, cluster, and let AI surface long-tail keywords the AI generator should target.</p>
       </div>
 
+      <Tabs defaultValue="list" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="list">All Keywords</TabsTrigger>
+          <TabsTrigger value="suggest">AI Suggest</TabsTrigger>
+          <TabsTrigger value="clusters">Topic Clusters</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="suggest">
+          <AiSuggestPanel clinicId={clinicId as Id<"clinics">} />
+        </TabsContent>
+
+        <TabsContent value="clusters">
+          <ClustersPanel clinicId={clinicId as Id<"clinics">} />
+        </TabsContent>
+
+        <TabsContent value="list" className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-1">
           <Card className="bg-white border-neutral-200 shadow-sm">
@@ -221,6 +240,8 @@ export default function ClinicKeywordsPage() {
           </div>
         </div>
       </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

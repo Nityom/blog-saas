@@ -5,14 +5,24 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { Metadata } from "next";
 import Link from "next/link";
-import { markdownToHtml } from "@/lib/markdown";
-import { generateLocalBusinessSchema, generateBreadcrumbSchema, generateSchemaMarkup } from "@/lib/seo";
+import Image from "next/image";
+import { extractToc, extractHowToSteps, markdownToHtml } from "@/lib/markdown";
+import {
+  generateLocalBusinessSchema,
+  generateBreadcrumbSchema,
+  generateSchemaMarkup,
+  generateHowToSchema,
+} from "@/lib/seo";
 import PostViewTracker from "./PostViewTracker";
 import SharePostButton from "@/components/share-post-button";
-import { ArrowLeft, Phone, MapPin, MessageCircle } from "lucide-react";
+import TableOfContents from "@/components/TableOfContents";
+import Breadcrumbs from "@/components/Breadcrumbs";
+import ReadingProgress from "@/components/ReadingProgress";
+import { ArrowLeft, ArrowRight, Phone, MapPin, MessageCircle } from "lucide-react";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+// ISR: rebuild every 5 min so Google sees a cached, fast page (good Core Web
+// Vitals) but new content still appears within minutes.
+export const revalidate = 300;
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
@@ -36,10 +46,27 @@ interface ClinicDoc {
   mainWebsiteUrl?: string;
   googleMapsUrl?: string;
   googleMapsEmbedUrl?: string;
+  customDomain?: string;
   authorQualification?: string;
   authorBio?: string;
   authorPhotoUrl?: string;
   integrationMethod: string;
+}
+
+/**
+ * Build the ONE canonical URL for a post. Same post may be reachable at both
+ * `app.com/blog/<clinic>/<post>` and `<custom-domain>/<post>`. Google must see
+ * a single canonical or it will split ranking signals between the duplicates.
+ *
+ * Rule: if the clinic has a custom domain → that's the canonical home.
+ *       otherwise → the platform URL (built from NEXT_PUBLIC_APP_URL).
+ */
+function buildCanonicalUrl(clinic: { customDomain?: string; slug: string }, postSlug: string, fallbackOrigin: string) {
+  if (clinic.customDomain) {
+    return `https://${clinic.customDomain}/${postSlug}`;
+  }
+  const appOrigin = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || fallbackOrigin;
+  return `${appOrigin}/blog/${clinic.slug}/${postSlug}`;
 }
 
 export async function generateMetadata({ params }: { params: { clinicSlug: string, postSlug: string } }): Promise<Metadata> {
@@ -52,37 +79,49 @@ export async function generateMetadata({ params }: { params: { clinicSlug: strin
   const requestHeaders = headers();
   const host = requestHeaders.get("host") || "";
   const protocol = requestHeaders.get("x-forwarded-proto") || "https";
-  const isCustomDomain = !host.includes("localhost") && !host.includes("vercel.app") && !host.includes("vercel.pub");
-  const basePath = isCustomDomain ? "" : `/blog/${clinic.slug}`;
-  const siteOrigin = `${protocol}://${host}`;
-  const canonicalUrl = `${siteOrigin}${basePath}/${post.slug}`;
+  const fallbackOrigin = `${protocol}://${host}`;
+  const canonicalUrl = buildCanonicalUrl(clinic as { customDomain?: string; slug: string }, post.slug, fallbackOrigin);
 
   const publishedDate = post.publishedAt ? new Date(post.publishedAt).toISOString() : undefined;
   const modifiedDate = post.updatedAt ? new Date(post.updatedAt).toISOString() : publishedDate;
 
+  // Prefer the AI-generated SEO `metaTitle` (≤60 chars) — it's purpose-built
+  // for SERP display. Fall back to the long H1 only when missing.
+  const seoTitle = post.metaTitle?.trim() || post.title;
+  const seoDescription = post.metaDesc?.trim() || post.excerpt;
+
+  // Use Pexels image when present; otherwise fall back to a dynamically
+  // rendered branded OG card so social shares always look intentional.
+  const ogImage =
+    post.imageUrl && post.imageUrl.startsWith("http")
+      ? post.imageUrl
+      : `${(process.env.NEXT_PUBLIC_APP_URL || fallbackOrigin).replace(/\/$/, "")}/api/og?title=${encodeURIComponent(
+          seoTitle,
+        )}&clinic=${encodeURIComponent(clinic.name)}&city=${encodeURIComponent(clinic.city)}`;
+
   return {
-    title: { absolute: post.title },
-    description: post.metaDesc || post.excerpt,
+    title: { absolute: seoTitle },
+    description: seoDescription,
     icons: { icon: clinic.logoUrl || '/favicon.ico' },
     robots: "index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1",
     alternates: {
       canonical: canonicalUrl,
     },
     openGraph: {
-      title: post.title,
-      description: post.metaDesc || post.excerpt,
+      title: seoTitle,
+      description: seoDescription,
       type: "article",
       url: canonicalUrl,
-      images: [post.imageUrl],
+      images: [ogImage],
       ...(publishedDate && { publishedTime: publishedDate }),
       ...(modifiedDate && { modifiedTime: modifiedDate }),
       authors: post.authorName ? [post.authorName] : undefined,
     },
     twitter: {
       card: "summary_large_image",
-      title: post.title,
-      description: post.metaDesc || post.excerpt,
-      images: [post.imageUrl],
+      title: seoTitle,
+      description: seoDescription,
+      images: [ogImage],
     },
   };
 }
@@ -106,6 +145,17 @@ export default async function BlogPostPage({ params }: { params: { clinicSlug: s
   const logoUrl = clinic.logoUrl || "";
 
   const allPosts = await convex.query(api.posts.getPublishedByClinic, { clinicId: clinic._id });
+
+  // Pre-sort posts by publish date so we can derive prev/next without a
+  // second query. "Prev" is the post published immediately before this one
+  // (older), "next" is the one published immediately after (newer).
+  const sortedAll = [...allPosts].sort(
+    (a, b) => (a.publishedAt || a.createdAt) - (b.publishedAt || b.createdAt),
+  );
+  const currentIdx = sortedAll.findIndex((p) => p._id === post._id);
+  const prevPost = currentIdx > 0 ? sortedAll[currentIdx - 1] : null;
+  const nextPost = currentIdx >= 0 && currentIdx < sortedAll.length - 1 ? sortedAll[currentIdx + 1] : null;
+
   let relatedPosts = allPosts.filter(p => p._id !== post._id && p.keywordId === post.keywordId).slice(0, 3);
   if (relatedPosts.length < 3) {
     const additional = allPosts
@@ -115,8 +165,32 @@ export default async function BlogPostPage({ params }: { params: { clinicSlug: s
     relatedPosts = [...relatedPosts, ...additional];
   }
 
+  // Topic-cluster context: pull all keywords once and find sibling posts
+  // sharing this post's cluster (and the pillar post if one exists). This
+  // is what compounds internal-link authority for a topic.
+  const allKeywords = await convex.query(api.keywords.getByClinic, { clinicId: clinic._id });
+  const currentKeyword = allKeywords.find((k) => k._id === post.keywordId);
+  const clusterTag = currentKeyword?.cluster;
+  const clusterPillarKw = clusterTag
+    ? allKeywords.find((k) => k.cluster === clusterTag && k.isPillar)
+    : null;
+  const clusterSiblingKwIds = clusterTag
+    ? new Set(allKeywords.filter((k) => k.cluster === clusterTag && k._id !== post.keywordId).map((k) => k._id))
+    : new Set<typeof post.keywordId>();
+  const clusterPosts = clusterTag
+    ? allPosts
+        .filter((p) => p._id !== post._id && clusterSiblingKwIds.has(p.keywordId))
+        .sort((a, b) => (b.publishedAt || b.createdAt) - (a.publishedAt || a.createdAt))
+        .slice(0, 6)
+    : [];
+  const pillarPost = clusterPillarKw
+    ? allPosts.find((p) => p.keywordId === clusterPillarKw._id && p._id !== post._id) || null
+    : null;
+
   const normalizedContent = normalizeInternalLinks(post.content, clinic.slug, basePath);
   const contentHtml = markdownToHtml(normalizedContent);
+  const tocItems = extractToc(normalizedContent);
+  const howToSteps = extractHowToSteps(normalizedContent);
   const articleSchema = generateSchemaMarkup(
     {
       title: post.title,
@@ -163,6 +237,18 @@ export default async function BlogPostPage({ params }: { params: { clinicSlug: s
     siteOrigin
   );
 
+  // Optional HowTo schema — only emitted when the post actually has a
+  // numbered procedure. Unlocks Google's step-by-step rich result.
+  const howToSchema =
+    howToSteps.length >= 3
+      ? generateHowToSchema({
+          name: post.title,
+          description: post.excerpt,
+          imageUrl: post.imageUrl,
+          steps: howToSteps,
+        })
+      : null;
+
   const whatsappNumber = clinic.whatsappNumber || clinic.phone || "";
   const whatsappHref = whatsappNumber
     ? `https://wa.me/${whatsappNumber.replace(/\D/g, "")}?text=Hi%2C%20I%20found%20your%20blog%20and%20would%20like%20to%20book%20an%20appointment.`
@@ -170,11 +256,15 @@ export default async function BlogPostPage({ params }: { params: { clinicSlug: s
 
   return (
     <div className="min-h-screen bg-white font-sans text-neutral-900">
+      <ReadingProgress />
       <PostViewTracker clinicId={clinic._id} postId={post._id} />
 
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: articleSchema }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: localBusinessSchema }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: breadcrumbSchema }} />
+      {howToSchema && (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: howToSchema }} />
+      )}
 
       <header className="py-5 border-b border-neutral-200 bg-white sticky top-0 z-40">
         <div className="max-w-4xl mx-auto px-4">
@@ -206,6 +296,14 @@ export default async function BlogPostPage({ params }: { params: { clinicSlug: s
       </header>
 
       <main className="max-w-3xl mx-auto px-4 py-12">
+        <Breadcrumbs
+          items={[
+            { label: "Home", href: `${basePath || "/"}` },
+            { label: clinic.name, href: `${basePath || "/"}` },
+            { label: post.title },
+          ]}
+        />
+
         <article>
           <header className="mb-10 text-center">
             <div className="flex items-center justify-center gap-3 text-sm text-neutral-500 mb-5 uppercase tracking-wider font-semibold flex-wrap">
@@ -250,12 +348,16 @@ export default async function BlogPostPage({ params }: { params: { clinicSlug: s
 
           {post.imageUrl && (
             <figure className="mb-12">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={post.imageUrl}
-                alt={post.title}
-                className="w-full h-auto max-h-[480px] object-cover rounded-xl shadow-sm"
-              />
+              <div className="relative w-full overflow-hidden rounded-xl shadow-sm bg-neutral-100" style={{ aspectRatio: "16 / 9" }}>
+                <Image
+                  src={post.imageUrl}
+                  alt={post.title}
+                  fill
+                  priority
+                  sizes="(max-width: 768px) 100vw, 768px"
+                  className="object-cover"
+                />
+              </div>
               {post.imageCredit && (
                 <figcaption className="text-center text-sm text-neutral-500 mt-3">
                   Photo by{" "}
@@ -267,6 +369,8 @@ export default async function BlogPostPage({ params }: { params: { clinicSlug: s
               )}
             </figure>
           )}
+
+          <TableOfContents items={tocItems} />
 
           <div
             className="prose prose-lg max-w-none prose-neutral prose-p:leading-relaxed prose-p:mb-8 prose-li:mb-4 prose-ul:my-8 prose-ol:my-8 prose-a:text-blue-600 hover:prose-a:text-blue-800 prose-headings:font-bold prose-h2:text-3xl prose-h2:mt-16 prose-h2:mb-8 prose-h3:text-2xl prose-h3:mt-10 prose-h3:mb-6 prose-img:rounded-xl"
@@ -307,6 +411,44 @@ export default async function BlogPostPage({ params }: { params: { clinicSlug: s
           )}
         </article>
 
+        {(prevPost || nextPost) && (
+          <nav
+            aria-label="Post navigation"
+            className="mt-12 grid grid-cols-1 sm:grid-cols-2 gap-3"
+          >
+            {prevPost ? (
+              <Link
+                href={`${basePath}/${prevPost.slug}`}
+                className="group rounded-xl border border-neutral-200 p-5 hover:border-blue-300 hover:bg-blue-50/40 transition-colors"
+              >
+                <span className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-neutral-500 mb-1">
+                  <ArrowLeft className="w-3 h-3" /> Previous
+                </span>
+                <span className="block font-semibold text-neutral-900 group-hover:text-blue-700 line-clamp-2">
+                  {prevPost.title}
+                </span>
+              </Link>
+            ) : (
+              <span aria-hidden />
+            )}
+            {nextPost ? (
+              <Link
+                href={`${basePath}/${nextPost.slug}`}
+                className="group rounded-xl border border-neutral-200 p-5 hover:border-blue-300 hover:bg-blue-50/40 transition-colors text-right"
+              >
+                <span className="flex items-center justify-end gap-1 text-xs font-bold uppercase tracking-wider text-neutral-500 mb-1">
+                  Next <ArrowRight className="w-3 h-3" />
+                </span>
+                <span className="block font-semibold text-neutral-900 group-hover:text-blue-700 line-clamp-2">
+                  {nextPost.title}
+                </span>
+              </Link>
+            ) : (
+              <span aria-hidden />
+            )}
+          </nav>
+        )}
+
         <div className="mt-14 bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl p-8 text-center text-white">
           <h2 className="text-2xl font-bold mb-3">Ready to book your appointment?</h2>
           <p className="text-blue-100 mb-6 text-base">Visit {clinic.name} in {clinic.city} — our team is here to help.</p>
@@ -334,6 +476,40 @@ export default async function BlogPostPage({ params }: { params: { clinicSlug: s
 
         {relatedPosts.length > 0 && (
           <div className="mt-20 pt-10 border-t border-neutral-200">
+            {clusterTag && (clusterPosts.length > 0 || pillarPost) && (
+              <div className="mb-12">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-blue-600">Topic</span>
+                  <span className="text-xs text-neutral-400">·</span>
+                  <span className="text-xs font-medium text-neutral-700">{clusterTag}</span>
+                </div>
+                <h3 className="text-2xl font-bold mb-6">More on {clusterTag}</h3>
+                {pillarPost && (
+                  <Link
+                    href={`${basePath}/${pillarPost.slug}`}
+                    className="block mb-4 p-5 rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 hover:border-amber-400 transition-colors"
+                  >
+                    <div className="text-xs font-semibold uppercase tracking-wider text-amber-700 mb-1">Complete Guide</div>
+                    <div className="text-lg font-bold text-neutral-900">{pillarPost.title}</div>
+                    <div className="text-sm text-neutral-600 line-clamp-2 mt-1">{pillarPost.excerpt}</div>
+                  </Link>
+                )}
+                {clusterPosts.length > 0 && (
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {clusterPosts.map((cp) => (
+                      <li key={cp._id}>
+                        <Link
+                          href={`${basePath}/${cp.slug}`}
+                          className="block p-3 rounded-lg border border-neutral-200 hover:border-blue-400 hover:bg-blue-50/40 transition-colors text-sm text-neutral-800 hover:text-blue-700"
+                        >
+                          {cp.title}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
             <h3 className="text-2xl font-bold mb-8">Related Articles</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {relatedPosts.map(rp => (

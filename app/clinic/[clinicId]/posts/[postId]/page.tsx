@@ -16,6 +16,7 @@ import Link from "next/link";
 import { ArrowLeft, Save, Globe, Trash2, AlertTriangle, CheckCircle2, Upload, RotateCcw } from "lucide-react";
 import dynamic from 'next/dynamic';
 import { parseJsonFromText } from "@/lib/json";
+import ContentScoreCard from "@/components/ContentScoreCard";
 
 const MDEditor = dynamic(() => import('@uiw/react-md-editor'), { ssr: false });
 
@@ -28,6 +29,7 @@ export default function EditPostPage() {
   const post = useQuery(api.posts.getById, { postId: postId as Id<"posts"> });
   const clinic = useQuery(api.clinics.getById, { clinicId: clinicId as Id<"clinics"> });
   const socialPosts = useQuery(api.socialOps.getByPost, { postId: postId as Id<"posts"> });
+  const keywords = useQuery(api.keywords.getByClinic, { clinicId: clinicId as Id<"clinics"> });
   const updatePost = useMutation(api.posts.update);
   const deletePost = useMutation(api.posts.remove);
   const publishPost = useAction(api.integrations.publishPost);
@@ -71,7 +73,7 @@ export default function EditPostPage() {
     }
   }, [post, isInitialized]);
 
-  if (post === undefined || clinic === undefined || socialPosts === undefined) {
+  if (post === undefined || clinic === undefined || socialPosts === undefined || keywords === undefined) {
     return <div className="p-8 text-neutral-400">Loading...</div>;
   }
 
@@ -298,6 +300,14 @@ export default function EditPostPage() {
                </CardContent>
             </Card>
           )}
+
+          <ContentScoreCard
+            content={formData.content}
+            title={formData.title}
+            metaTitle={formData.metaTitle}
+            metaDesc={formData.metaDesc}
+            keyword={keywords?.find((k) => k._id === post.keywordId)?.term || ""}
+          />
 
           <Card className="bg-white border-neutral-200">
             <CardHeader>

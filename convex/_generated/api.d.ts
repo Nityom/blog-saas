@@ -14,6 +14,7 @@ import type * as crons from "../crons.js";
 import type * as generation from "../generation.js";
 import type * as generationHelpers from "../generationHelpers.js";
 import type * as integrations from "../integrations.js";
+import type * as keywordSuggestions from "../keywordSuggestions.js";
 import type * as keywords from "../keywords.js";
 import type * as posts from "../posts.js";
 import type * as social from "../social.js";
@@ -32,6 +33,7 @@ declare const fullApi: ApiFromModules<{
   generation: typeof generation;
   generationHelpers: typeof generationHelpers;
   integrations: typeof integrations;
+  keywordSuggestions: typeof keywordSuggestions;
   keywords: typeof keywords;
   posts: typeof posts;
   social: typeof social;

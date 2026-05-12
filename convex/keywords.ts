@@ -11,21 +11,140 @@ export const getByClinic = query({
   },
 });
 
+export const getClusters = query({
+  args: { clinicId: v.id("clinics") },
+  handler: async (ctx, args) => {
+    const all = await ctx.db
+      .query("keywords")
+      .withIndex("by_clinic", (q) => q.eq("clinicId", args.clinicId))
+      .collect();
+
+    const buckets = new Map<string, { name: string; pillar: typeof all[number] | null; children: typeof all }>();
+    const orphans: typeof all = [];
+
+    for (const kw of all) {
+      const tag = kw.cluster?.trim();
+      if (!tag) { orphans.push(kw); continue; }
+      if (!buckets.has(tag)) buckets.set(tag, { name: tag, pillar: null, children: [] });
+      const b = buckets.get(tag)!;
+      if (kw.isPillar) b.pillar = kw;
+      else b.children.push(kw);
+    }
+
+    return {
+      clusters: Array.from(buckets.values()).sort((a, b) => a.name.localeCompare(b.name)),
+      orphans,
+    };
+  },
+});
+
 export const add = mutation({
   args: {
     clinicId: v.id("clinics"),
     term: v.string(),
     localVariant: v.string(),
     lowRisk: v.boolean(),
+    cluster: v.optional(v.string()),
+    pillarKeywordId: v.optional(v.id("keywords")),
+    isPillar: v.optional(v.boolean()),
+    source: v.optional(v.union(
+      v.literal("manual"),
+      v.literal("ai_longtail"),
+      v.literal("gsc_almost_ranking"),
+      v.literal("seed")
+    )),
+    intent: v.optional(v.union(
+      v.literal("informational"),
+      v.literal("commercial"),
+      v.literal("transactional"),
+      v.literal("navigational")
+    )),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("keywords", {
       ...args,
+      source: args.source ?? "manual",
       timesUsed: 0,
       performanceScore: 0,
       paused: false,
       createdAt: Date.now(),
     });
+  },
+});
+
+export const bulkInsert = mutation({
+  args: {
+    clinicId: v.id("clinics"),
+    items: v.array(v.object({
+      term: v.string(),
+      localVariant: v.string(),
+      lowRisk: v.boolean(),
+      cluster: v.optional(v.string()),
+      pillarTerm: v.optional(v.string()), // resolved to pillarKeywordId below
+      isPillar: v.optional(v.boolean()),
+      source: v.optional(v.union(
+        v.literal("manual"),
+        v.literal("ai_longtail"),
+        v.literal("gsc_almost_ranking"),
+        v.literal("seed")
+      )),
+      intent: v.optional(v.union(
+        v.literal("informational"),
+        v.literal("commercial"),
+        v.literal("transactional"),
+        v.literal("navigational")
+      )),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("keywords")
+      .withIndex("by_clinic", (q) => q.eq("clinicId", args.clinicId))
+      .collect();
+
+    const norm = (s: string) => s.trim().toLowerCase();
+    const seen = new Set(existing.map((k) => norm(k.term)));
+    const byTerm = new Map(existing.map((k) => [norm(k.term), k._id] as const));
+
+    let inserted = 0;
+    let skipped = 0;
+    for (const it of args.items) {
+      const key = norm(it.term);
+      if (seen.has(key)) { skipped++; continue; }
+      const pillarKeywordId = it.pillarTerm ? byTerm.get(norm(it.pillarTerm)) : undefined;
+      const id = await ctx.db.insert("keywords", {
+        clinicId: args.clinicId,
+        term: it.term,
+        localVariant: it.localVariant,
+        lowRisk: it.lowRisk,
+        cluster: it.cluster,
+        pillarKeywordId,
+        isPillar: it.isPillar,
+        source: it.source ?? "manual",
+        intent: it.intent,
+        timesUsed: 0,
+        performanceScore: 0,
+        paused: false,
+        createdAt: Date.now(),
+      });
+      seen.add(key);
+      byTerm.set(key, id);
+      inserted++;
+    }
+    return { inserted, skipped };
+  },
+});
+
+export const setCluster = mutation({
+  args: {
+    keywordId: v.id("keywords"),
+    cluster: v.optional(v.string()),
+    pillarKeywordId: v.optional(v.id("keywords")),
+    isPillar: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const { keywordId, ...rest } = args;
+    await ctx.db.patch(keywordId, rest);
   },
 });
 
