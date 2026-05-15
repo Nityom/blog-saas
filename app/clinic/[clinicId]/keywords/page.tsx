@@ -130,116 +130,153 @@ export default function ClinicKeywordsPage() {
           <ClustersPanel clinicId={clinicId as Id<"clinics">} />
         </TabsContent>
 
-        <TabsContent value="list" className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <div className="lg:col-span-1">
-          <Card className="bg-white border-neutral-200 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-lg">Add Keyword</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleAdd} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="term" className="text-neutral-700">Term</Label>
-                  <Input id="term" value={term} onChange={handleTermChange} required placeholder="e.g. root canal" className="shadow-sm" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="localVariant" className="text-neutral-700">Local Variant</Label>
-                  <Input id="localVariant" value={localVariant} onChange={(e) => setLocalVariant(e.target.value)} required className="shadow-sm" />
-                </div>
-                <div className="flex items-center gap-2 pt-2">
-                  <input type="checkbox" id="lowRisk" checked={lowRisk} onChange={(e) => setLowRisk(e.target.checked)} className="rounded border-neutral-300 text-blue-600 focus:ring-blue-500" />
-                  <Label htmlFor="lowRisk" className="cursor-pointer text-sm text-neutral-700 font-medium">Low Risk (skips safety check)</Label>
-                </div>
-                <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white mt-4 shadow-sm">
-                  <Plus className="w-4 h-4 mr-2" /> Add Keyword
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
+        <TabsContent value="list">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+            {/* Add Keyword Form */}
+            <div className="lg:col-span-1">
+              <Card className="bg-white border-neutral-200 shadow-sm">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-base font-semibold">Add Keyword</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleAdd} className="space-y-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="term" className="text-sm text-neutral-700">Term</Label>
+                      <Input
+                        id="term"
+                        value={term}
+                        onChange={handleTermChange}
+                        required
+                        placeholder="e.g. root canal"
+                        className="h-9 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="localVariant" className="text-sm text-neutral-700">Local Variant</Label>
+                      <Input
+                        id="localVariant"
+                        value={localVariant}
+                        onChange={(e) => setLocalVariant(e.target.value)}
+                        required
+                        className="h-9 text-sm"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="lowRisk"
+                        checked={lowRisk}
+                        onChange={(e) => setLowRisk(e.target.checked)}
+                        className="rounded border-neutral-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <Label htmlFor="lowRisk" className="cursor-pointer text-xs text-neutral-600 font-normal leading-snug">
+                        Low Risk (skips safety check)
+                      </Label>
+                    </div>
+                    <Button type="submit" className="w-full h-9 bg-blue-600 hover:bg-blue-700 text-white text-sm">
+                      <Plus className="w-4 h-4 mr-1.5" /> Add Keyword
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            </div>
 
-        <div className="lg:col-span-3">
-          <div className="bg-white border border-neutral-200 rounded-lg overflow-hidden shadow-sm">
-            <DragDropContext onDragEnd={onDragEnd}>
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-neutral-50 hover:bg-neutral-50">
-                    <TableHead className="w-10"></TableHead>
-                    <TableHead>Term / Variant</TableHead>
-                    <TableHead>Performance</TableHead>
-                    <TableHead>Last Used</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <Droppable droppableId="keywords-list" direction="vertical">
-                  {(provided) => (
-                    <TableBody {...provided.droppableProps} ref={provided.innerRef}>
-                      {localKeywords.map((kw, index) => (
-                        <Draggable key={kw._id} draggableId={kw._id} index={index}>
-                          {(provided, snapshot) => (
-                            <TableRow 
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              className={`hover:bg-neutral-50 transition-colors ${snapshot.isDragging ? "bg-blue-50 shadow-md" : ""}`}
-                              style={{ ...provided.draggableProps.style }}
-                            >
-                              <TableCell className="w-10">
-                                <div {...provided.dragHandleProps} className="cursor-grab text-neutral-400 hover:text-neutral-600">
-                                  <GripVertical className="h-5 w-5" />
-                                </div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="font-medium text-neutral-900">{kw.term}</div>
-                                <div className="text-xs text-neutral-500">{kw.localVariant}</div>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex flex-col">
-                                  <span className="font-medium">{kw.performanceScore?.toFixed(2) || "0.00"} score</span>
-                                  <span className="text-xs text-neutral-500">{kw.timesUsed || 0} uses</span>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-neutral-500">
-                                {kw.lastUsed ? new Date(kw.lastUsed).toLocaleDateString() : "Never"}
-                              </TableCell>
-                              <TableCell>
-                                {kw.paused ? (
-                                  <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">Paused</Badge>
-                                ) : (
-                                  <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">Active</Badge>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <div className="flex justify-end gap-2">
-                                  <Button variant="ghost" size="icon" onClick={() => togglePause(kw)} title={kw.paused ? "Resume" : "Pause"}>
-                                    {kw.paused ? <PlayCircle className="w-4 h-4 text-green-600" /> : <PauseCircle className="w-4 h-4 text-amber-600" />}
-                                  </Button>
-                                  <Button variant="ghost" size="icon" onClick={() => handleDelete(kw)} title="Delete">
-                                    <Trash2 className="w-4 h-4 text-red-500" />
-                                  </Button>
-                                </div>
+            {/* Keywords Table */}
+            <div className="lg:col-span-3">
+              <div className="bg-white border border-neutral-200 rounded-lg overflow-hidden shadow-sm">
+                <DragDropContext onDragEnd={onDragEnd}>
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-neutral-50 hover:bg-neutral-50">
+                        <TableHead className="w-8 px-3"></TableHead>
+                        <TableHead className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Term / Variant</TableHead>
+                        <TableHead className="text-xs font-medium text-neutral-500 uppercase tracking-wide w-32">Performance</TableHead>
+                        <TableHead className="text-xs font-medium text-neutral-500 uppercase tracking-wide w-28 whitespace-nowrap">Last Used</TableHead>
+                        <TableHead className="text-xs font-medium text-neutral-500 uppercase tracking-wide w-24">Status</TableHead>
+                        <TableHead className="text-xs font-medium text-neutral-500 uppercase tracking-wide w-20 text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <Droppable droppableId="keywords-list" direction="vertical">
+                      {(provided) => (
+                        <TableBody {...provided.droppableProps} ref={provided.innerRef}>
+                          {localKeywords.map((kw, index) => (
+                            <Draggable key={kw._id} draggableId={kw._id} index={index}>
+                              {(provided, snapshot) => (
+                                <TableRow
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  className={`transition-colors ${snapshot.isDragging ? "bg-blue-50 shadow-md" : "hover:bg-neutral-50"}`}
+                                  style={{ ...provided.draggableProps.style }}
+                                >
+                                  <TableCell className="w-8 px-3">
+                                    <div {...provided.dragHandleProps} className="cursor-grab text-neutral-300 hover:text-neutral-500 flex items-center">
+                                      <GripVertical className="h-4 w-4" />
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="font-medium text-sm text-neutral-900 leading-tight">{kw.term}</div>
+                                    <div className="text-xs text-neutral-400 mt-0.5">{kw.localVariant}</div>
+                                  </TableCell>
+                                  <TableCell className="w-32">
+                                    <div className="text-sm font-medium text-neutral-800 tabular-nums">
+                                      {kw.performanceScore?.toFixed(2) || "0.00"}
+                                    </div>
+                                    <div className="text-xs text-neutral-400">{kw.timesUsed || 0} use{(kw.timesUsed || 0) !== 1 ? "s" : ""}</div>
+                                  </TableCell>
+                                  <TableCell className="w-28 whitespace-nowrap text-sm text-neutral-500">
+                                    {kw.lastUsed ? new Date(kw.lastUsed).toLocaleDateString() : "—"}
+                                  </TableCell>
+                                  <TableCell className="w-24">
+                                    {kw.paused ? (
+                                      <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50 text-xs font-medium">Paused</Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 text-xs font-medium">Active</Badge>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="w-20">
+                                    <div className="flex items-center justify-end gap-1">
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8"
+                                        onClick={() => togglePause(kw)}
+                                        title={kw.paused ? "Resume" : "Pause"}
+                                      >
+                                        {kw.paused
+                                          ? <PlayCircle className="w-4 h-4 text-green-600" />
+                                          : <PauseCircle className="w-4 h-4 text-amber-500" />}
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8"
+                                        onClick={() => handleDelete(kw)}
+                                        title="Delete"
+                                      >
+                                        <Trash2 className="w-4 h-4 text-red-400" />
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                          {localKeywords.length === 0 && (
+                            <TableRow>
+                              <TableCell colSpan={6} className="text-center py-12 text-sm text-neutral-400">
+                                No keywords yet. Add one to get started.
                               </TableCell>
                             </TableRow>
                           )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-                      {localKeywords.length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={6} className="text-center py-8 text-neutral-500">
-                            No keywords found. Add one to get started.
-                          </TableCell>
-                        </TableRow>
+                        </TableBody>
                       )}
-                    </TableBody>
-                  )}
-                </Droppable>
-              </Table>
-            </DragDropContext>
+                    </Droppable>
+                  </Table>
+                </DragDropContext>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
         </TabsContent>
       </Tabs>
     </div>
