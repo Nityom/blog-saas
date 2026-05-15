@@ -109,7 +109,7 @@ export default function ClinicKeywordsPage() {
   };
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-6">
+    <div className="p-6 max-w-6xl mx-auto space-y-5">
       <div>
         <h2 className="text-2xl font-bold tracking-tight text-neutral-900">Keyword Manager</h2>
         <p className="text-neutral-500">Add, cluster, and let AI surface long-tail keywords the AI generator should target.</p>
@@ -131,9 +131,9 @@ export default function ClinicKeywordsPage() {
         </TabsContent>
 
         <TabsContent value="list">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+          <div className="flex flex-col lg:flex-row gap-5 items-start">
             {/* Add Keyword Form */}
-            <div className="lg:col-span-1">
+            <div className="w-full lg:w-64 shrink-0">
               <Card className="bg-white border-neutral-200 shadow-sm">
                 <CardHeader className="pb-4">
                   <CardTitle className="text-base font-semibold">Add Keyword</CardTitle>
@@ -182,10 +182,10 @@ export default function ClinicKeywordsPage() {
             </div>
 
             {/* Keywords Table */}
-            <div className="lg:col-span-3">
-              <div className="bg-white border border-neutral-200 rounded-lg overflow-hidden shadow-sm">
+            <div className="flex-1 min-w-0">
+              <div className="bg-white border border-neutral-200 rounded-lg overflow-x-auto shadow-sm">
                 <DragDropContext onDragEnd={onDragEnd}>
-                  <Table>
+                  <Table className="min-w-[560px]">
                     <TableHeader>
                       <TableRow className="bg-neutral-50 hover:bg-neutral-50">
                         <TableHead className="w-8 px-3"></TableHead>
