@@ -213,9 +213,9 @@ export default function ClinicKeywordsPage() {
                                       <GripVertical className="h-4 w-4" />
                                     </div>
                                   </TableCell>
-                                  <TableCell>
-                                    <div className="font-medium text-sm text-neutral-900 leading-tight">{kw.term}</div>
-                                    <div className="text-xs text-neutral-400 mt-0.5">{kw.localVariant}</div>
+                                  <TableCell className="max-w-[220px]">
+                                    <div className="font-medium text-sm text-neutral-900 leading-tight line-clamp-2">{kw.term}</div>
+                                    <div className="text-xs text-neutral-400 mt-0.5 truncate">{kw.localVariant}</div>
                                   </TableCell>
                                   <TableCell className="w-32">
                                     <div className="text-sm font-medium text-neutral-800 tabular-nums">
