@@ -38,7 +38,10 @@ export async function GET(req: Request) {
   const appHostname = process.env.NEXT_PUBLIC_APP_URL
     ? new URL(process.env.NEXT_PUBLIC_APP_URL).hostname
     : "";
-  const isMainDomain = isLocal || isVercel || hostname === appHostname || !appHostname;
+  // Do NOT fall back to "main domain" when appHostname is empty — that would
+  // cause every custom clinic domain to skip the clinic lookup and return the
+  // platform sitemap (with 0 posts) when NEXT_PUBLIC_APP_URL is unset.
+  const isMainDomain = isLocal || isVercel || (appHostname !== "" && hostname === appHostname);
 
   let body = "";
 
