@@ -11,6 +11,9 @@ export const metadata = {
   title: "BlogForge — AI Blog Platform for Dental Clinics",
   description:
     "Publish SEO-optimised blog content and auto-share to social media for dental clinics. Human + AI, on autopilot.",
+  alternates: {
+    canonical: process.env.NEXT_PUBLIC_APP_URL || "/",
+  },
 };
 
 export default function Home() {

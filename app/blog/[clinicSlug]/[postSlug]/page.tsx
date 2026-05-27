@@ -138,7 +138,8 @@ export default async function BlogPostPage({ params }: { params: { clinicSlug: s
   const requestHeaders = headers();
   const host = requestHeaders.get("host") || "";
   const protocol = requestHeaders.get("x-forwarded-proto") || "https";
-  const isCustomDomain = !host.includes("localhost") && !host.includes("vercel.app") && !host.includes("vercel.pub");
+  const appHostname = process.env.NEXT_PUBLIC_APP_URL ? new URL(process.env.NEXT_PUBLIC_APP_URL).hostname : "";
+  const isCustomDomain = !host.includes("localhost") && !host.includes("vercel.app") && !host.includes("vercel.pub") && host !== appHostname;
   const basePath = isCustomDomain ? "" : `/blog/${clinic.slug}`;
   const siteOrigin = `${protocol}://${host}`;
   const blogUrl = `${siteOrigin}${basePath}`;
