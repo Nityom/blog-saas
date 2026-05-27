@@ -1,7 +1,8 @@
 // Proper sitemap index — references the main sitemap so Google crawlers
 // that discover /sitemap-index.xml get a valid <sitemapindex> document
 // instead of a raw <urlset> (which was the previous, incorrect behaviour).
-export const revalidate = 600;
+// force-dynamic prevents ISR from serving one host's response to another host.
+export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "";

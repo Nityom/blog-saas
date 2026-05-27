@@ -3,9 +3,11 @@ import { api } from "@/convex/_generated/api";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
-// Allow CDN caching for 10 min so the sitemap is fast and crawl-friendly,
-// but still refreshes within minutes when new posts are published.
-export const revalidate = 600;
+// This route serves DIFFERENT content per host (custom-domain clinic vs platform).
+// Next.js ISR caches by path only — so the first host's response would be served
+// to all subsequent hosts. force-dynamic disables ISR; CDN caching is handled by
+// the Cache-Control header below, which Vercel correctly keys per URL+host.
+export const dynamic = "force-dynamic";
 
 function escapeXml(value: string) {
   return value
