@@ -89,7 +89,7 @@ async function buildSitemap(isMainDomain: boolean, hostname: string, protocol: s
       convex.query(api.clinics.getByDomain, { domain: bare }),
       convex.query(api.clinics.getByDomain, { domain: www }),
     ]);
-    let clinic = clinicByBare ?? clinicByWww;
+    const clinic = clinicByBare ?? clinicByWww;
 
     if (clinic) {
       const baseUrl = `${protocol}://${hostname}`;
