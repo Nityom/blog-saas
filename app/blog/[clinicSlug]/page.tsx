@@ -75,7 +75,7 @@ export default async function BlogIndexPage({ params, searchParams }: { params: 
   const sortedPosts = posts.sort((a, b) => (b.publishedAt || 0) - (a.publishedAt || 0));
 
   const page = parseInt(searchParams.page || "1");
-  const limit = 10;
+  const limit = 9;
   const totalPages = Math.ceil(sortedPosts.length / limit);
   const paginatedPosts = sortedPosts.slice((page - 1) * limit, page * limit);
   const logoUrl = clinic.logoUrl || "";
