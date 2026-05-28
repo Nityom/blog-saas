@@ -307,19 +307,21 @@ export default function ClinicDetailsPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="overview" className="w-full flex md:flex-row flex-col gap-6">
-        <TabsList className="flex flex-col bg-white border border-neutral-200 p-2 rounded-lg w-full md:w-48 xl:w-56 h-fit items-stretch justify-start">
-          <TabsTrigger value="overview" className="justify-start">Overview</TabsTrigger>
-          <TabsTrigger value="seo" className="justify-start">SEO & Profile</TabsTrigger>
-          <TabsTrigger value="checklist" className="justify-start">SEO Checklist</TabsTrigger>
-          <TabsTrigger value="posts" className="justify-start">Posts ({posts.length})</TabsTrigger>
-          <TabsTrigger value="keywords" className="justify-start">Keywords ({keywords.length})</TabsTrigger>
-          <TabsTrigger value="social" className="justify-start">Social Media</TabsTrigger>
-          <TabsTrigger value="billing" className="justify-start">Billing</TabsTrigger>
-          <TabsTrigger value="danger" className="justify-start text-red-600">Danger Zone</TabsTrigger>
+      <Tabs defaultValue="overview" className="w-full">
+        <div className="flex flex-col md:flex-row gap-6">
+        <TabsList className="flex flex-row md:flex-col bg-white border border-neutral-200 p-2 rounded-xl md:w-48 xl:w-52 h-fit items-stretch justify-start shrink-0 overflow-x-auto gap-0.5">
+          <TabsTrigger value="overview" className="justify-start text-sm whitespace-nowrap">Overview</TabsTrigger>
+          <TabsTrigger value="seo" className="justify-start text-sm whitespace-nowrap">SEO & Profile</TabsTrigger>
+          <TabsTrigger value="checklist" className="justify-start text-sm whitespace-nowrap">SEO Checklist</TabsTrigger>
+          <TabsTrigger value="posts" className="justify-start text-sm whitespace-nowrap">Posts ({posts.length})</TabsTrigger>
+          <TabsTrigger value="keywords" className="justify-start text-sm whitespace-nowrap">Keywords ({keywords.length})</TabsTrigger>
+          <TabsTrigger value="social" className="justify-start text-sm whitespace-nowrap">Social Media</TabsTrigger>
+          <TabsTrigger value="billing" className="justify-start text-sm whitespace-nowrap">Billing</TabsTrigger>
+          <TabsTrigger value="danger" className="justify-start text-sm whitespace-nowrap text-red-600">Danger Zone</TabsTrigger>
         </TabsList>
-        
-        <TabsContent value="overview" className="flex-1 space-y-6">
+
+        <div className="flex-1 min-w-0">
+        <TabsContent value="overview" className="space-y-6 mt-0">
            {/* Summary Cards */}
            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card className="bg-white border-neutral-200">
@@ -357,7 +359,7 @@ export default function ClinicDetailsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="seo" className="flex-1 space-y-6">
+        <TabsContent value="seo" className="space-y-6 mt-0">
           <Card className="bg-white border-neutral-200 shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-neutral-900">
@@ -481,11 +483,11 @@ export default function ClinicDetailsPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="checklist" className="flex-1">
+        <TabsContent value="checklist" className="mt-0">
           <SeoChecklist clinicId={clinic._id} completed={clinic.seoChecklist || {}} />
         </TabsContent>
 
-        <TabsContent value="posts" className="flex-1">
+        <TabsContent value="posts" className="mt-0">
           <Card className="bg-white border-neutral-200">
             <CardContent className="p-0">
               <div className="divide-y divide-neutral-100">
@@ -511,7 +513,7 @@ export default function ClinicDetailsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="keywords" className="flex-1 space-y-6">
+        <TabsContent value="keywords" className="space-y-6 mt-0">
           <Card className="bg-white border-neutral-200">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
@@ -537,7 +539,7 @@ export default function ClinicDetailsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="billing" className="flex-1 space-y-6">
+        <TabsContent value="billing" className="space-y-6 mt-0">
            <Card className="bg-white border-neutral-200">
             <CardHeader><CardTitle className="text-neutral-900">Billing Config</CardTitle></CardHeader>
             <CardContent className="space-y-4">
@@ -556,7 +558,7 @@ export default function ClinicDetailsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="social" className="flex-1 space-y-6">
+        <TabsContent value="social" className="space-y-6 mt-0">
           <Card className="bg-white border-neutral-200">
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -650,7 +652,7 @@ export default function ClinicDetailsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="danger" className="flex-1">
+        <TabsContent value="danger" className="mt-0">
           <Card className="bg-red-50 border-red-200">
             <CardContent className="p-6">
               <h3 className="text-lg font-bold text-red-600 mb-2">Delete Clinic</h3>
@@ -659,6 +661,8 @@ export default function ClinicDetailsPage() {
             </CardContent>
           </Card>
         </TabsContent>
+        </div>{/* flex-1 content wrapper */}
+        </div>{/* flex row wrapper */}
       </Tabs>
     </div>
   );
