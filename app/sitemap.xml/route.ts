@@ -6,8 +6,11 @@ import { api } from "@/convex/_generated/api";
 // to every subsequent host. force-dynamic disables ISR entirely.
 export const dynamic = "force-dynamic";
 
-// Allow up to 30 s on Vercel Pro/Enterprise. Harmless on Hobby (max 10 s there).
-export const maxDuration = 30;
+// Edge runtime: near-zero cold start (vs ~500ms Node.js cold start).
+// ConvexHttpClient uses the Fetch API only — no Node.js builtins — so it
+// runs in Edge without modification. This prevents Googlebot from hitting
+// a 504 during a Node.js cold start.
+export const runtime = "edge";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
