@@ -1,66 +1,60 @@
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 
-// Must be force-dynamic: this route serves DIFFERENT content per Host header.
-// Next.js ISR caches by path only — the first host's response would be served
-// to every subsequent host. force-dynamic disables ISR entirely.
 export const dynamic = "force-dynamic";
-
-// Edge runtime: near-zero cold start (vs ~500ms Node.js cold start).
-// ConvexHttpClient uses the Fetch API only — no Node.js builtins — so it
-// runs in Edge without modification. This prevents Googlebot from hitting
-// a 504 during a Node.js cold start.
+// Edge runtime = zero cold start, globally distributed.
+// ConvexHttpClient uses only fetch() — fully Edge-compatible.
 export const runtime = "edge";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
-// ─── helpers ────────────────────────────────────────────────────────────────
-
-function escapeXml(s: string) {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
+// W3C date format (YYYY-MM-DD) — required by sitemap spec
+function toDate(ts: number) {
+  return new Date(ts).toISOString().split("T")[0];
 }
 
-function urlEntry(loc: string, lastmod: string, changefreq: string, priority: string) {
-  return `\n  <url>\n    <loc>${escapeXml(loc)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>${changefreq}</changefreq>\n    <priority>${priority}</priority>\n  </url>`;
+function url(loc: string, lastmod: string, changefreq: string, priority: string) {
+  return `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>${changefreq}</changefreq>\n    <priority>${priority}</priority>\n  </url>`;
 }
 
-function wrapUrlset(entries: string) {
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${entries}\n</urlset>`;
+function sitemap(urls: string[]) {
+  return (
+    `<?xml version="1.0" encoding="UTF-8"?>\n` +
+    `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+    urls.join("\n") +
+    `\n</urlset>`
+  );
 }
 
-function xmlResponse(body: string) {
-  return new Response(body, {
+function respond(xml: string) {
+  return new Response(xml, {
     status: 200,
     headers: {
       "Content-Type": "application/xml; charset=utf-8",
-      // no-store: prevents CDN/edge from caching an error response on cold starts.
-      // Googlebot re-fetches sitemaps infrequently so there is no benefit to caching.
-      "Cache-Control": "no-store, no-cache, must-revalidate",
+      // 1-hour edge cache: lets CDN serve fast without caching error responses
+      // for long. GSC fetches infrequently so 1h is fine.
+      "Cache-Control": "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400",
     },
   });
 }
 
-// ─── request handler ─────────────────────────────────────────────────────────
-
 export async function GET(req: Request) {
-  const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "";
+  const host =
+    req.headers.get("x-forwarded-host") ||
+    req.headers.get("host") ||
+    "";
   const hostname = host.split(":")[0].toLowerCase();
-  // x-forwarded-proto may be a comma-separated list ("http,https") on some proxies.
-  const protocol = (req.headers.get("x-forwarded-proto") || "https").split(",")[0].trim();
+  const proto = (req.headers.get("x-forwarded-proto") || "https").split(",")[0].trim();
 
-  let appHostname = "";
-  try {
-    appHostname = process.env.NEXT_PUBLIC_APP_URL
-      ? new URL(process.env.NEXT_PUBLIC_APP_URL).hostname
-      : "";
-  } catch {
-    // malformed env var — treat as unset
-  }
+  const appHostname = (() => {
+    try {
+      return process.env.NEXT_PUBLIC_APP_URL
+        ? new URL(process.env.NEXT_PUBLIC_APP_URL).hostname
+        : "";
+    } catch {
+      return "";
+    }
+  })();
 
   const isMainDomain =
     !hostname ||
@@ -70,103 +64,76 @@ export async function GET(req: Request) {
     hostname.includes("vercel.pub") ||
     (appHostname !== "" && hostname === appHostname);
 
-  // Minimal fallback — always valid XML so Google never sees a non-200.
-  const fallback = wrapUrlset(
-    urlEntry(`${protocol}://${hostname || "localhost"}/`, new Date().toISOString(), "daily", "1.0"),
-  );
+  const today = new Date().toISOString().split("T")[0];
 
   try {
-    const body = await Promise.race([
-      isMainDomain
-        ? buildPlatformSitemap(protocol, hostname)
-        : buildClinicSitemap(protocol, hostname),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("sitemap_timeout")), 8000),
-      ),
-    ]);
-    return xmlResponse(body);
-  } catch (err) {
-    console.error("[sitemap.xml] failed:", (err as Error).message);
-    return xmlResponse(fallback);
-  }
-}
+    if (!isMainDomain) {
+      // ── Custom clinic domain ──────────────────────────────────────────────
+      const bare = hostname.replace(/^www\./, "");
+      const www = `www.${bare}`;
 
-// ─── per-clinic sitemap (custom domain) ──────────────────────────────────────
+      const [c1, c2] = await Promise.all([
+        convex.query(api.clinics.getByDomain, { domain: bare }),
+        convex.query(api.clinics.getByDomain, { domain: www }),
+      ]);
+      const clinic = c1 ?? c2;
 
-async function buildClinicSitemap(protocol: string, hostname: string): Promise<string> {
-  // Look up both bare and www variants simultaneously to halve latency.
-  const bare = hostname.startsWith("www.") ? hostname.slice(4) : hostname;
-  const www = hostname.startsWith("www.") ? hostname : `www.${hostname}`;
+      if (!clinic) {
+        // Unknown domain — return minimal valid sitemap
+        return respond(sitemap([url(`${proto}://${hostname}/`, today, "daily", "1.0")]));
+      }
 
-  const [clinicByBare, clinicByWww] = await Promise.all([
-    convex.query(api.clinics.getByDomain, { domain: bare }),
-    convex.query(api.clinics.getByDomain, { domain: www }),
-  ]);
+      const posts = await convex.query(api.posts.getPublishedByClinic, {
+        clinicId: clinic._id,
+      });
 
-  const clinic = clinicByBare ?? clinicByWww;
-
-  if (!clinic) {
-    // Unknown custom domain — return a minimal valid sitemap, NOT the platform
-    // sitemap (which would expose all other clinics' URLs on a foreign domain).
-    console.warn(`[sitemap.xml] no clinic found for hostname: ${hostname}`);
-    return wrapUrlset(
-      urlEntry(`${protocol}://${hostname}/`, new Date().toISOString(), "daily", "1.0"),
-    );
-  }
-
-  const baseUrl = `${protocol}://${hostname}`;
-  const posts = await convex.query(api.posts.getPublishedByClinic, { clinicId: clinic._id });
-
-  const entries = [
-    urlEntry(`${baseUrl}/`, new Date().toISOString(), "daily", "1.0"),
-    ...posts.map((p) =>
-      urlEntry(
-        `${baseUrl}/${p.slug}`,
-        new Date(p.updatedAt || p.publishedAt || p.createdAt).toISOString(),
-        "weekly",
-        "0.8",
-      ),
-    ),
-  ].join("");
-
-  return wrapUrlset(entries);
-}
-
-// ─── platform sitemap (main domain) ──────────────────────────────────────────
-
-async function buildPlatformSitemap(protocol: string, hostname: string): Promise<string> {
-  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || `${protocol}://${hostname}`).replace(/\/$/, "");
-
-  const clinics = await convex.query(api.clinics.getActive);
-
-  // Only enumerate posts for clinics whose canonical home is the platform.
-  // Clinics with a custom domain expose their posts via that domain's own
-  // sitemap — listing them here creates duplicate URLs that split ranking signal.
-  const hostedClinics = clinics.filter(
-    (c) => c.integrationMethod === "hosted" && !c.customDomain,
-  );
-
-  const postUrlChunks = await Promise.all(
-    hostedClinics.map(async (clinic) => {
-      const posts = await convex.query(api.posts.getPublishedByClinic, { clinicId: clinic._id });
-      return posts.map((p) =>
-        urlEntry(
-          `${baseUrl}/blog/${clinic.slug}/${p.slug}`,
-          new Date(p.updatedAt || p.publishedAt || p.createdAt).toISOString(),
-          "weekly",
-          "0.8",
-        ),
+      const base = `${proto}://${hostname}`;
+      return respond(
+        sitemap([
+          url(`${base}/`, today, "daily", "1.0"),
+          ...posts.map((p) =>
+            url(
+              `${base}/${p.slug}`,
+              toDate(p.updatedAt ?? p.publishedAt ?? p.createdAt),
+              "weekly",
+              "0.8",
+            ),
+          ),
+        ]),
       );
-    }),
-  );
+    }
 
-  const entries = [
-    urlEntry(`${baseUrl}/`, new Date().toISOString(), "daily", "1.0"),
-    ...hostedClinics.map((c) =>
-      urlEntry(`${baseUrl}/blog/${c.slug}`, new Date(c.createdAt).toISOString(), "weekly", "0.7"),
-    ),
-    ...postUrlChunks.flat(),
-  ].join("");
+    // ── Platform / main domain ──────────────────────────────────────────────
+    const base = (process.env.NEXT_PUBLIC_APP_URL || `${proto}://${hostname}`).replace(/\/$/, "");
+    const clinics = await convex.query(api.clinics.getActive);
+    // Only list clinics whose canonical URL is on the platform domain
+    const hosted = clinics.filter((c) => !c.customDomain);
 
-  return wrapUrlset(entries);
+    const postGroups = await Promise.all(
+      hosted.map((c) =>
+        convex.query(api.posts.getPublishedByClinic, { clinicId: c._id }),
+      ),
+    );
+
+    return respond(
+      sitemap([
+        url(`${base}/`, today, "daily", "1.0"),
+        ...hosted.flatMap((c, i) => [
+          url(`${base}/blog/${c.slug}`, toDate(c.createdAt), "weekly", "0.7"),
+          ...postGroups[i].map((p) =>
+            url(
+              `${base}/blog/${c.slug}/${p.slug}`,
+              toDate(p.updatedAt ?? p.publishedAt ?? p.createdAt),
+              "weekly",
+              "0.8",
+            ),
+          ),
+        ]),
+      ]),
+    );
+  } catch (err) {
+    console.error("[sitemap.xml]", err);
+    // Always return valid XML — never a 500 that GSC treats as "could not read"
+    return respond(sitemap([url(`${proto}://${hostname}/`, today, "daily", "1.0")]));
+  }
 }
