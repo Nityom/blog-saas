@@ -1,16 +1,20 @@
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
-
-// This route serves DIFFERENT content per host (custom-domain clinic vs platform).
-// Next.js ISR caches by path only — so the first host's response would be served
-// to all subsequent hosts. force-dynamic disables ISR; CDN caching is handled by
-// the Cache-Control header below, which Vercel correctly keys per URL+host.
+// Must be force-dynamic: this route serves DIFFERENT content per Host header.
+// Next.js ISR caches by path only — the first host's response would be served
+// to every subsequent host. force-dynamic disables ISR entirely.
 export const dynamic = "force-dynamic";
 
-function escapeXml(value: string) {
-  return value
+// Allow up to 30 s on Vercel Pro/Enterprise. Harmless on Hobby (max 10 s there).
+export const maxDuration = 30;
+
+const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+
+// ─── helpers ────────────────────────────────────────────────────────────────
+
+function escapeXml(s: string) {
+  return s
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -19,139 +23,147 @@ function escapeXml(value: string) {
 }
 
 function urlEntry(loc: string, lastmod: string, changefreq: string, priority: string) {
-  return `
-  <url>
-    <loc>${escapeXml(loc)}</loc>
-    <lastmod>${lastmod}</lastmod>
-    <changefreq>${changefreq}</changefreq>
-    <priority>${priority}</priority>
-  </url>`;
+  return `\n  <url>\n    <loc>${escapeXml(loc)}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>${changefreq}</changefreq>\n    <priority>${priority}</priority>\n  </url>`;
 }
 
-export async function GET(req: Request) {
-  const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "";
-  const hostname = host.split(":")[0];
-  const protocol = (req.headers.get("x-forwarded-proto") || "https").split(",")[0].trim();
+function wrapUrlset(entries: string) {
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${entries}\n</urlset>`;
+}
 
-  const isLocal = hostname.includes("localhost") || hostname.includes("127.0.0.1");
-  const isVercel = hostname.includes("vercel.app") || hostname.includes("vercel.pub");
-  const appHostname = process.env.NEXT_PUBLIC_APP_URL
-    ? new URL(process.env.NEXT_PUBLIC_APP_URL).hostname
-    : "";
-  // Do NOT fall back to "main domain" when appHostname is empty — that would
-  // cause every custom clinic domain to skip the clinic lookup and return the
-  // platform sitemap (with 0 posts) when NEXT_PUBLIC_APP_URL is unset.
-  const isMainDomain = isLocal || isVercel || (appHostname !== "" && hostname === appHostname);
-
-  // Abort the Convex queries if they take too long so the function always
-  // returns a valid 200 XML response instead of timing out with a 504.
-  // 5 s gives a large buffer below Vercel's 10 s serverless limit even on cold starts.
-  const TIMEOUT_MS = 5000;
-  const timeoutPromise = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error("sitemap timeout")), TIMEOUT_MS),
-  );
-
-  let body = "";
-
-  try {
-    body = await Promise.race([buildSitemap(isMainDomain, hostname, protocol), timeoutPromise]);
-  } catch (error) {
-    console.error("[Sitemap] generation error:", error);
-    body = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urlEntry(
-      `${protocol}://${hostname || "localhost"}/`,
-      new Date().toISOString(),
-      "daily",
-      "1.0",
-    )}
-</urlset>`;
-  }
-
+function xmlResponse(body: string) {
   return new Response(body, {
+    status: 200,
     headers: {
       "Content-Type": "application/xml; charset=utf-8",
-      // no-store prevents CDN from caching a stale/error response on cold starts.
-      // Google re-fetches sitemaps every few days so caching is not needed here.
+      // no-store: prevents CDN/edge from caching an error response on cold starts.
+      // Googlebot re-fetches sitemaps infrequently so there is no benefit to caching.
       "Cache-Control": "no-store, no-cache, must-revalidate",
     },
   });
 }
 
-async function buildSitemap(isMainDomain: boolean, hostname: string, protocol: string) {
-  let body = "";
+// ─── request handler ─────────────────────────────────────────────────────────
 
-  if (!isMainDomain && hostname) {
-    // ── Custom-domain case: list posts for that clinic only ─────────────
-    // Query bare and www variants in parallel to halve lookup latency.
-    const bare = hostname.startsWith("www.") ? hostname.substring(4) : hostname;
-    const www = hostname.startsWith("www.") ? hostname : `www.${hostname}`;
-    const [clinicByBare, clinicByWww] = await Promise.all([
-      convex.query(api.clinics.getByDomain, { domain: bare }),
-      convex.query(api.clinics.getByDomain, { domain: www }),
-    ]);
-    const clinic = clinicByBare ?? clinicByWww;
+export async function GET(req: Request) {
+  const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "";
+  const hostname = host.split(":")[0].toLowerCase();
+  // x-forwarded-proto may be a comma-separated list ("http,https") on some proxies.
+  const protocol = (req.headers.get("x-forwarded-proto") || "https").split(",")[0].trim();
 
-    if (clinic) {
-      const baseUrl = `${protocol}://${hostname}`;
-      const posts = await convex.query(api.posts.getPublishedByClinic, { clinicId: clinic._id });
-      const entries = [
-        urlEntry(`${baseUrl}/`, new Date().toISOString(), "daily", "1.0"),
-        ...posts.map((p) =>
-          urlEntry(
-            `${baseUrl}/${p.slug}`,
-            new Date(p.updatedAt || p.publishedAt || p.createdAt).toISOString(),
-            "weekly",
-            "0.8",
-          ),
-        ),
-      ].join("");
-      body = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${entries}
-</urlset>`;
-    }
+  let appHostname = "";
+  try {
+    appHostname = process.env.NEXT_PUBLIC_APP_URL
+      ? new URL(process.env.NEXT_PUBLIC_APP_URL).hostname
+      : "";
+  } catch {
+    // malformed env var — treat as unset
   }
 
-  if (!body) {
-    // ── Main / platform domain: list every clinic blog AND every post ───
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${protocol}://${hostname || "localhost"}`;
-    const clinics = await convex.query(api.clinics.getActive);
+  const isMainDomain =
+    !hostname ||
+    hostname === "localhost" ||
+    hostname.startsWith("127.") ||
+    hostname.includes("vercel.app") ||
+    hostname.includes("vercel.pub") ||
+    (appHostname !== "" && hostname === appHostname);
 
-    // Only enumerate posts for clinics whose canonical home is the platform.
-    // Clinics with a custom domain expose their posts via that domain's own
-    // sitemap — listing them here too would create duplicate URLs in
-    // Google's index and split ranking signal.
-    const hostedClinics = clinics.filter(
-      (c) => c.integrationMethod === "hosted" && !c.customDomain,
-    );
+  // Minimal fallback — always valid XML so Google never sees a non-200.
+  const fallback = wrapUrlset(
+    urlEntry(`${protocol}://${hostname || "localhost"}/`, new Date().toISOString(), "daily", "1.0"),
+  );
 
-    const postUrlChunks = await Promise.all(
-      hostedClinics.map(async (clinic) => {
-        const posts = await convex.query(api.posts.getPublishedByClinic, {
-          clinicId: clinic._id,
-        });
-        return posts.map((p) =>
-          urlEntry(
-            `${baseUrl}/blog/${clinic.slug}/${p.slug}`,
-            new Date(p.updatedAt || p.publishedAt || p.createdAt).toISOString(),
-            "weekly",
-            "0.8",
-          ),
-        );
-      }),
-    );
-
-    const entries = [
-      urlEntry(`${baseUrl}/`, new Date().toISOString(), "daily", "1.0"),
-      ...hostedClinics.map((c) =>
-        urlEntry(`${baseUrl}/blog/${c.slug}`, new Date(c.createdAt).toISOString(), "weekly", "0.7"),
+  try {
+    const body = await Promise.race([
+      isMainDomain
+        ? buildPlatformSitemap(protocol, hostname)
+        : buildClinicSitemap(protocol, hostname),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("sitemap_timeout")), 8000),
       ),
-      ...postUrlChunks.flat(),
-    ].join("");
+    ]);
+    return xmlResponse(body);
+  } catch (err) {
+    console.error("[sitemap.xml] failed:", (err as Error).message);
+    return xmlResponse(fallback);
+  }
+}
 
-    body = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${entries}
-</urlset>`;
+// ─── per-clinic sitemap (custom domain) ──────────────────────────────────────
+
+async function buildClinicSitemap(protocol: string, hostname: string): Promise<string> {
+  // Look up both bare and www variants simultaneously to halve latency.
+  const bare = hostname.startsWith("www.") ? hostname.slice(4) : hostname;
+  const www = hostname.startsWith("www.") ? hostname : `www.${hostname}`;
+
+  const [clinicByBare, clinicByWww] = await Promise.all([
+    convex.query(api.clinics.getByDomain, { domain: bare }),
+    convex.query(api.clinics.getByDomain, { domain: www }),
+  ]);
+
+  const clinic = clinicByBare ?? clinicByWww;
+
+  if (!clinic) {
+    // Unknown custom domain — return a minimal valid sitemap, NOT the platform
+    // sitemap (which would expose all other clinics' URLs on a foreign domain).
+    console.warn(`[sitemap.xml] no clinic found for hostname: ${hostname}`);
+    return wrapUrlset(
+      urlEntry(`${protocol}://${hostname}/`, new Date().toISOString(), "daily", "1.0"),
+    );
   }
 
-  return body;
+  const baseUrl = `${protocol}://${hostname}`;
+  const posts = await convex.query(api.posts.getPublishedByClinic, { clinicId: clinic._id });
+
+  const entries = [
+    urlEntry(`${baseUrl}/`, new Date().toISOString(), "daily", "1.0"),
+    ...posts.map((p) =>
+      urlEntry(
+        `${baseUrl}/${p.slug}`,
+        new Date(p.updatedAt || p.publishedAt || p.createdAt).toISOString(),
+        "weekly",
+        "0.8",
+      ),
+    ),
+  ].join("");
+
+  return wrapUrlset(entries);
+}
+
+// ─── platform sitemap (main domain) ──────────────────────────────────────────
+
+async function buildPlatformSitemap(protocol: string, hostname: string): Promise<string> {
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || `${protocol}://${hostname}`).replace(/\/$/, "");
+
+  const clinics = await convex.query(api.clinics.getActive);
+
+  // Only enumerate posts for clinics whose canonical home is the platform.
+  // Clinics with a custom domain expose their posts via that domain's own
+  // sitemap — listing them here creates duplicate URLs that split ranking signal.
+  const hostedClinics = clinics.filter(
+    (c) => c.integrationMethod === "hosted" && !c.customDomain,
+  );
+
+  const postUrlChunks = await Promise.all(
+    hostedClinics.map(async (clinic) => {
+      const posts = await convex.query(api.posts.getPublishedByClinic, { clinicId: clinic._id });
+      return posts.map((p) =>
+        urlEntry(
+          `${baseUrl}/blog/${clinic.slug}/${p.slug}`,
+          new Date(p.updatedAt || p.publishedAt || p.createdAt).toISOString(),
+          "weekly",
+          "0.8",
+        ),
+      );
+    }),
+  );
+
+  const entries = [
+    urlEntry(`${baseUrl}/`, new Date().toISOString(), "daily", "1.0"),
+    ...hostedClinics.map((c) =>
+      urlEntry(`${baseUrl}/blog/${c.slug}`, new Date(c.createdAt).toISOString(), "weekly", "0.7"),
+    ),
+    ...postUrlChunks.flat(),
+  ].join("");
+
+  return wrapUrlset(entries);
 }

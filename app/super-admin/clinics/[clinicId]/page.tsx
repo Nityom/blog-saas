@@ -309,7 +309,7 @@ export default function ClinicDetailsPage() {
 
       <Tabs defaultValue="overview" className="w-full">
         <div className="flex flex-col md:flex-row gap-6">
-        <TabsList className="flex flex-row md:flex-col bg-white border border-neutral-200 p-2 rounded-xl md:w-48 xl:w-52 h-fit items-stretch justify-start shrink-0 overflow-x-auto gap-0.5">
+        <TabsList className="flex flex-row md:flex-col bg-white border border-neutral-200 p-2 rounded-xl md:w-48 xl:w-52 h-12 md:h-fit items-stretch justify-start shrink-0 overflow-x-auto md:overflow-visible gap-0.5 md:sticky md:top-4 md:self-start">
           <TabsTrigger value="overview" className="justify-start text-sm whitespace-nowrap">Overview</TabsTrigger>
           <TabsTrigger value="seo" className="justify-start text-sm whitespace-nowrap">SEO & Profile</TabsTrigger>
           <TabsTrigger value="checklist" className="justify-start text-sm whitespace-nowrap">SEO Checklist</TabsTrigger>
