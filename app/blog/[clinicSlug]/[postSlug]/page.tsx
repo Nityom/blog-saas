@@ -102,7 +102,6 @@ export async function generateMetadata({ params }: { params: { clinicSlug: strin
   return {
     title: { absolute: seoTitle },
     description: seoDescription,
-    icons: { icon: clinic.logoUrl || '/favicon.ico' },
     robots: "index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1",
     alternates: {
       canonical: canonicalUrl,

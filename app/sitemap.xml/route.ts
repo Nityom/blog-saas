@@ -45,7 +45,8 @@ export async function GET(req: Request) {
 
   // Abort the Convex queries if they take too long so the function always
   // returns a valid 200 XML response instead of timing out with a 504.
-  const TIMEOUT_MS = 8000;
+  // 5 s gives a large buffer below Vercel's 10 s serverless limit even on cold starts.
+  const TIMEOUT_MS = 5000;
   const timeoutPromise = new Promise<never>((_, reject) =>
     setTimeout(() => reject(new Error("sitemap timeout")), TIMEOUT_MS),
   );
@@ -81,13 +82,14 @@ async function buildSitemap(isMainDomain: boolean, hostname: string, protocol: s
 
   if (!isMainDomain && hostname) {
     // ── Custom-domain case: list posts for that clinic only ─────────────
-    let clinic = await convex.query(api.clinics.getByDomain, { domain: hostname });
-    if (!clinic && !hostname.startsWith("www.")) {
-      clinic = await convex.query(api.clinics.getByDomain, { domain: `www.${hostname}` });
-    }
-    if (!clinic && hostname.startsWith("www.")) {
-      clinic = await convex.query(api.clinics.getByDomain, { domain: hostname.substring(4) });
-    }
+    // Query bare and www variants in parallel to halve lookup latency.
+    const bare = hostname.startsWith("www.") ? hostname.substring(4) : hostname;
+    const www = hostname.startsWith("www.") ? hostname : `www.${hostname}`;
+    const [clinicByBare, clinicByWww] = await Promise.all([
+      convex.query(api.clinics.getByDomain, { domain: bare }),
+      convex.query(api.clinics.getByDomain, { domain: www }),
+    ]);
+    let clinic = clinicByBare ?? clinicByWww;
 
     if (clinic) {
       const baseUrl = `${protocol}://${hostname}`;

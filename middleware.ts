@@ -5,10 +5,13 @@ import { api } from "./convex/_generated/api";
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
-// Match all routes except for static assets, Next.js internals, and API routes
+// Match all routes except for static assets, Next.js internals, and API routes.
+// /favicon.ico is included explicitly so custom-domain clinics get their logo
+// served as the favicon instead of the platform default.
 export const config = {
   matcher: [
     "/((?!api/|_next/|_static/|_vercel|[\\w-]+\\.\\w+).*)",
+    "/favicon.ico",
   ],
 };
 
@@ -39,9 +42,18 @@ export async function middleware(req: NextRequest) {
     const clinic = await convex.query(api.clinics.getByDomain, { domain: hostname });
     
     if (clinic) {
+      // For favicon requests, redirect to the clinic's uploaded logo so the
+      // browser tab shows the clinic brand instead of the platform default.
+      if (url.pathname === '/favicon.ico' && clinic.logoUrl) {
+        return NextResponse.redirect(clinic.logoUrl, { status: 302 });
+      }
+
       // Rewrite to our native blog route: /blog/[clinicSlug]
       // This allows Next.js to render the page as if the user visited /blog/...
-      return NextResponse.rewrite(new URL(`/blog/${clinic.slug}${url.pathname === '/' ? '' : url.pathname}`, req.url));
+      const rewriteUrl = new URL(`/blog/${clinic.slug}${url.pathname === '/' ? '' : url.pathname}`, req.url);
+      // Preserve query params (e.g. ?page=2) — new URL() drops them when given an absolute path
+      rewriteUrl.search = url.search;
+      return NextResponse.rewrite(rewriteUrl);
     }
   } catch (error) {
     console.error("Middleware Convex Error:", error);
