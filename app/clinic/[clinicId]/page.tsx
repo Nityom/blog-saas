@@ -61,11 +61,25 @@ export default function ClinicDashboard() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Compute next weekday 9PM IST
+  // Find the next Mon–Fri at 9:00 AM IST (UTC+5:30)
   const now = new Date();
-  const tomorrow = new Date(now);
-  tomorrow.setDate(now.getDate() + 1);
-  const nextRun = tomorrow.toLocaleDateString("en-IN", { weekday: "long", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" });
+  // Work in IST: shift now by +5:30
+  const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+  const nowIST = new Date(now.getTime() + IST_OFFSET_MS);
+  // Start from tomorrow IST
+  const candidate = new Date(nowIST);
+  candidate.setUTCDate(nowIST.getUTCDate() + 1);
+  candidate.setUTCHours(3, 30, 0, 0); // 9 AM IST = 03:30 UTC
+  // Advance past weekend days (0=Sun, 6=Sat in UTC day, but we're already in IST)
+  while (candidate.getUTCDay() === 0 || candidate.getUTCDay() === 6) {
+    candidate.setUTCDate(candidate.getUTCDate() + 1);
+  }
+  const nextRun = candidate.toLocaleDateString("en-IN", {
+    weekday: "long",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "Asia/Kolkata",
+  });
 
   return (
     <div className="p-6 lg:p-8 max-w-5xl mx-auto space-y-8 text-neutral-900">
