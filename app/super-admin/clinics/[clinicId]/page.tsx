@@ -307,17 +307,16 @@ export default function ClinicDetailsPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="overview" className="w-full">
-        <div className="flex flex-col md:flex-row gap-6">
-        <TabsList className="flex flex-row md:flex-col bg-white border border-neutral-200 p-2 rounded-xl md:w-48 xl:w-52 h-12 md:h-fit items-stretch justify-start shrink-0 overflow-x-auto md:overflow-visible gap-0.5 md:sticky md:top-4 md:self-start">
-          <TabsTrigger value="overview" className="justify-start text-sm whitespace-nowrap">Overview</TabsTrigger>
-          <TabsTrigger value="seo" className="justify-start text-sm whitespace-nowrap">SEO & Profile</TabsTrigger>
-          <TabsTrigger value="checklist" className="justify-start text-sm whitespace-nowrap">SEO Checklist</TabsTrigger>
-          <TabsTrigger value="posts" className="justify-start text-sm whitespace-nowrap">Posts ({posts.length})</TabsTrigger>
-          <TabsTrigger value="keywords" className="justify-start text-sm whitespace-nowrap">Keywords ({keywords.length})</TabsTrigger>
-          <TabsTrigger value="social" className="justify-start text-sm whitespace-nowrap">Social Media</TabsTrigger>
-          <TabsTrigger value="billing" className="justify-start text-sm whitespace-nowrap">Billing</TabsTrigger>
-          <TabsTrigger value="danger" className="justify-start text-sm whitespace-nowrap text-red-600">Danger Zone</TabsTrigger>
+      <Tabs defaultValue="overview" orientation="vertical" className="w-full flex-col md:flex-row items-start gap-6">
+        <TabsList className="w-full md:w-48 xl:w-52 shrink-0 overflow-x-auto md:overflow-visible md:sticky md:top-4 md:self-start">
+          <TabsTrigger value="overview" className="text-sm whitespace-nowrap">Overview</TabsTrigger>
+          <TabsTrigger value="seo" className="text-sm whitespace-nowrap">SEO & Profile</TabsTrigger>
+          <TabsTrigger value="checklist" className="text-sm whitespace-nowrap">SEO Checklist</TabsTrigger>
+          <TabsTrigger value="posts" className="text-sm whitespace-nowrap">Posts ({posts.length})</TabsTrigger>
+          <TabsTrigger value="keywords" className="text-sm whitespace-nowrap">Keywords ({keywords.length})</TabsTrigger>
+          <TabsTrigger value="social" className="text-sm whitespace-nowrap">Social Media</TabsTrigger>
+          <TabsTrigger value="billing" className="text-sm whitespace-nowrap">Billing</TabsTrigger>
+          <TabsTrigger value="danger" className="text-sm whitespace-nowrap text-red-600">Danger Zone</TabsTrigger>
         </TabsList>
 
         <div className="flex-1 min-w-0">
@@ -662,7 +661,6 @@ export default function ClinicDetailsPage() {
           </Card>
         </TabsContent>
         </div>{/* flex-1 content wrapper */}
-        </div>{/* flex row wrapper */}
       </Tabs>
     </div>
   );
