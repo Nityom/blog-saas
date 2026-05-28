@@ -69,7 +69,9 @@ export async function GET(req: Request) {
   return new Response(body, {
     headers: {
       "Content-Type": "application/xml; charset=utf-8",
-      "Cache-Control": "public, max-age=600, s-maxage=600, stale-while-revalidate=3600",
+      // no-store prevents CDN from caching a stale/error response on cold starts.
+      // Google re-fetches sitemaps every few days so caching is not needed here.
+      "Cache-Control": "no-store, no-cache, must-revalidate",
     },
   });
 }
