@@ -43,7 +43,9 @@ export async function generateMetadata({ params }: { params: { clinicSlug: strin
   return {
     title: `${clinic.name} Blog | Dental Tips & News from ${clinic.city}`,
     description: `Read the latest dental advice and news from ${clinic.name} in ${clinic.city}.`,
-    icons: clinic.logoUrl ? { icon: clinic.logoUrl, apple: clinic.logoUrl } : undefined,
+    icons: clinic.logoUrl
+      ? { icon: [{ url: clinic.logoUrl, type: "image/svg+xml", sizes: "any" }], apple: clinic.logoUrl }
+      : undefined,
     alternates: { canonical: canonicalUrl },
     openGraph: {
       title: `${clinic.name} Blog`,
