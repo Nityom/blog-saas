@@ -8,6 +8,19 @@ export const getClinic = internalQuery({
   },
 });
 
+export const getUsedImageUrls = internalQuery({
+  args: { clinicId: v.id("clinics") },
+  handler: async (ctx, args) => {
+    const posts = await ctx.db
+      .query("posts")
+      .withIndex("by_clinic", (q) => q.eq("clinicId", args.clinicId))
+      .collect();
+    return posts
+      .map((p) => p.imageUrl)
+      .filter((url): url is string => !!url && url.startsWith("http"));
+  },
+});
+
 /**
  * Resolve cluster siblings for a keyword and pull their most recent
  * published posts. Used to feed the generation prompt with high-quality

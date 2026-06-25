@@ -312,7 +312,8 @@ Then write the post following these rules:
       let safetyReportJson = "{}";
 
         // Parallel tasks: Pexels, Pass 2, and Pass 3 social content.
-        const tasks: Promise<any>[] = [fetchPexelsImage(keyword.term)];
+        const usedImageUrls = await ctx.runQuery(internal.generationHelpers.getUsedImageUrls, { clinicId: args.clinicId });
+        const tasks: Promise<any>[] = [fetchPexelsImage(keyword.term, usedImageUrls)];
       
       if (!keyword.lowRisk) {
         tasks.push((async () => {

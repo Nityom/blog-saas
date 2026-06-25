@@ -10,16 +10,23 @@ const FALLBACK_IMAGE: PexelsImage = {
   imageCreditUrl: "https://unsplash.com",
 };
 
-export async function fetchPexelsImage(query: string): Promise<PexelsImage> {
+export async function fetchPexelsImage(
+  query: string,
+  excludeUrls: string[] = []
+): Promise<PexelsImage> {
   const apiKey = process.env.PEXELS_API_KEY;
   if (!apiKey) {
     console.warn("No PEXELS_API_KEY found, using fallback image.");
     return FALLBACK_IMAGE;
   }
 
+  const excludeSet = new Set(excludeUrls);
+
   try {
+    // Fetch enough results so we can skip already-used images.
+    const perPage = Math.min(excludeSet.size + 15, 80);
     const res = await fetch(
-      `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=1`,
+      `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=${perPage}`,
       {
         headers: {
           Authorization: apiKey,
@@ -37,7 +44,13 @@ export async function fetchPexelsImage(query: string): Promise<PexelsImage> {
       return FALLBACK_IMAGE;
     }
 
-    const photo = data.photos[0];
+    // Pick the first photo whose URL hasn't already been used.
+    const photo =
+      data.photos.find((p: any) => {
+        const url = p.src.large || p.src.original;
+        return !excludeSet.has(url);
+      }) ?? data.photos[0];
+
     return {
       imageUrl: photo.src.large || photo.src.original,
       imageCredit: photo.photographer,
