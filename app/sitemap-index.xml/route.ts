@@ -1,26 +1,26 @@
-// Proper sitemap index — references the main sitemap so Google crawlers
-// that discover /sitemap-index.xml get a valid <sitemapindex> document
-// instead of a raw <urlset> (which was the previous, incorrect behaviour).
-// force-dynamic prevents ISR from serving one host's response to another host.
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-export async function GET(req: Request) {
+export async function GET(req: Request): Promise<Response> {
   const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "";
-  const protocol = req.headers.get("x-forwarded-proto") || "https";
-  const origin = `${protocol}://${host}`;
+  const proto = (req.headers.get("x-forwarded-proto") || "https").split(",")[0].trim();
+  const origin = `${proto}://${host}`;
+  const today = new Date().toISOString().split("T")[0];
 
-  const body = `<?xml version="1.0" encoding="UTF-8"?>
-<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <sitemap>
-    <loc>${origin}/sitemap.xml</loc>
-    <lastmod>${new Date().toISOString().split("T")[0]}</lastmod>
-  </sitemap>
-</sitemapindex>`;
+  const body = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    "  <sitemap>",
+    `    <loc>${origin}/sitemap.xml</loc>`,
+    `    <lastmod>${today}</lastmod>`,
+    "  </sitemap>",
+    "</sitemapindex>",
+  ].join("\n");
 
   return new Response(body, {
     headers: {
       "Content-Type": "application/xml; charset=utf-8",
-      "Cache-Control": "public, max-age=600, s-maxage=600, stale-while-revalidate=3600",
+      "Cache-Control": "no-store, no-cache, must-revalidate",
     },
   });
 }

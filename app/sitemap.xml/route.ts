@@ -2,49 +2,64 @@ import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 
 export const dynamic = "force-dynamic";
-// Edge runtime = zero cold start, globally distributed.
-// ConvexHttpClient uses only fetch() — fully Edge-compatible.
-export const runtime = "edge";
+export const revalidate = 0;
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
-// W3C date format (YYYY-MM-DD) — required by sitemap spec
-function toDate(ts: number) {
+function w3cDate(ts: number): string {
   return new Date(ts).toISOString().split("T")[0];
 }
 
-function url(loc: string, lastmod: string, changefreq: string, priority: string) {
-  return `  <url>\n    <loc>${loc}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>${changefreq}</changefreq>\n    <priority>${priority}</priority>\n  </url>`;
+function buildUrlEntry(
+  loc: string,
+  lastmod: string,
+  changefreq: string,
+  priority: string,
+): string {
+  return [
+    "  <url>",
+    `    <loc>${loc}</loc>`,
+    `    <lastmod>${lastmod}</lastmod>`,
+    `    <changefreq>${changefreq}</changefreq>`,
+    `    <priority>${priority}</priority>`,
+    "  </url>",
+  ].join("\n");
 }
 
-function sitemap(urls: string[]) {
-  return (
-    `<?xml version="1.0" encoding="UTF-8"?>\n` +
-    `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
-    urls.join("\n") +
-    `\n</urlset>`
-  );
+function buildSitemapXml(entries: string[]): string {
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    ...entries,
+    "</urlset>",
+  ].join("\n");
 }
 
-function respond(xml: string) {
+function xmlResponse(xml: string, cacheSeconds = 3600): Response {
   return new Response(xml, {
     status: 200,
     headers: {
       "Content-Type": "application/xml; charset=utf-8",
-      // 1-hour edge cache: lets CDN serve fast without caching error responses
-      // for long. GSC fetches infrequently so 1h is fine.
-      "Cache-Control": "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400",
+      "Cache-Control": `public, max-age=${cacheSeconds}, s-maxage=${cacheSeconds}, stale-while-revalidate=${cacheSeconds * 24}`,
     },
   });
 }
 
-export async function GET(req: Request) {
-  const host =
-    req.headers.get("x-forwarded-host") ||
-    req.headers.get("host") ||
-    "";
+function errorResponse(xml: string): Response {
+  return new Response(xml, {
+    status: 200,
+    headers: {
+      "Content-Type": "application/xml; charset=utf-8",
+      "Cache-Control": "no-store, no-cache, must-revalidate",
+    },
+  });
+}
+
+export async function GET(req: Request): Promise<Response> {
+  const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "";
   const hostname = host.split(":")[0].toLowerCase();
   const proto = (req.headers.get("x-forwarded-proto") || "https").split(",")[0].trim();
+  const today = new Date().toISOString().split("T")[0];
 
   const appHostname = (() => {
     try {
@@ -64,23 +79,20 @@ export async function GET(req: Request) {
     hostname.includes("vercel.pub") ||
     (appHostname !== "" && hostname === appHostname);
 
-  const today = new Date().toISOString().split("T")[0];
-
-  try {
-    if (!isMainDomain) {
-      // ── Custom clinic domain ──────────────────────────────────────────────
+  // ── Custom clinic domain ────────────────────────────────────────────────
+  if (!isMainDomain) {
+    try {
       const bare = hostname.replace(/^www\./, "");
-      const www = `www.${bare}`;
 
-      const [c1, c2] = await Promise.all([
-        convex.query(api.clinics.getByDomain, { domain: bare }),
-        convex.query(api.clinics.getByDomain, { domain: www }),
-      ]);
-      const clinic = c1 ?? c2;
+      // Try bare domain first, then www-prefixed variant
+      let clinic =
+        (await convex.query(api.clinics.getByDomain, { domain: bare })) ??
+        (await convex.query(api.clinics.getByDomain, { domain: `www.${bare}` }));
 
       if (!clinic) {
-        // Unknown domain — return minimal valid sitemap
-        return respond(sitemap([url(`${proto}://${hostname}/`, today, "daily", "1.0")]));
+        return errorResponse(
+          buildSitemapXml([buildUrlEntry(`${proto}://${hostname}/`, today, "daily", "1.0")]),
+        );
       }
 
       const posts = await convex.query(api.posts.getPublishedByClinic, {
@@ -88,52 +100,71 @@ export async function GET(req: Request) {
       });
 
       const base = `${proto}://${hostname}`;
-      return respond(
-        sitemap([
-          url(`${base}/`, today, "daily", "1.0"),
-          ...posts.map((p) =>
-            url(
-              `${base}/${p.slug}`,
-              toDate(p.updatedAt ?? p.publishedAt ?? p.createdAt),
-              "weekly",
-              "0.8",
-            ),
+
+      const sortedPosts = [...posts].sort(
+        (a, b) => (b.publishedAt ?? b.createdAt) - (a.publishedAt ?? a.createdAt),
+      );
+
+      const entries = [
+        buildUrlEntry(`${base}/`, today, "daily", "1.0"),
+        ...sortedPosts.map((p) =>
+          buildUrlEntry(
+            `${base}/${p.slug}`,
+            w3cDate(p.updatedAt ?? p.publishedAt ?? p.createdAt),
+            "weekly",
+            "0.8",
           ),
-        ]),
+        ),
+      ];
+
+      return xmlResponse(buildSitemapXml(entries));
+    } catch (err) {
+      console.error("[sitemap.xml] custom domain error:", hostname, err);
+      return errorResponse(
+        buildSitemapXml([buildUrlEntry(`${proto}://${hostname}/`, today, "daily", "1.0")]),
       );
     }
+  }
 
-    // ── Platform / main domain ──────────────────────────────────────────────
+  // ── Platform / main domain ──────────────────────────────────────────────
+  try {
     const base = (process.env.NEXT_PUBLIC_APP_URL || `${proto}://${hostname}`).replace(/\/$/, "");
+
     const clinics = await convex.query(api.clinics.getActive);
-    // Only list clinics whose canonical URL is on the platform domain
-    const hosted = clinics.filter((c) => !c.customDomain);
+    const hostedClinics = clinics.filter((c) => !c.customDomain);
 
     const postGroups = await Promise.all(
-      hosted.map((c) =>
+      hostedClinics.map((c) =>
         convex.query(api.posts.getPublishedByClinic, { clinicId: c._id }),
       ),
     );
 
-    return respond(
-      sitemap([
-        url(`${base}/`, today, "daily", "1.0"),
-        ...hosted.flatMap((c, i) => [
-          url(`${base}/blog/${c.slug}`, toDate(c.createdAt), "weekly", "0.7"),
-          ...postGroups[i].map((p) =>
-            url(
+    const entries = [
+      buildUrlEntry(`${base}/`, today, "daily", "1.0"),
+      ...hostedClinics.flatMap((c, i) => {
+        const sortedPosts = [...postGroups[i]].sort(
+          (a, b) => (b.publishedAt ?? b.createdAt) - (a.publishedAt ?? a.createdAt),
+        );
+        return [
+          buildUrlEntry(`${base}/blog/${c.slug}`, w3cDate(c.createdAt), "weekly", "0.7"),
+          ...sortedPosts.map((p) =>
+            buildUrlEntry(
               `${base}/blog/${c.slug}/${p.slug}`,
-              toDate(p.updatedAt ?? p.publishedAt ?? p.createdAt),
+              w3cDate(p.updatedAt ?? p.publishedAt ?? p.createdAt),
               "weekly",
               "0.8",
             ),
           ),
-        ]),
-      ]),
-    );
+        ];
+      }),
+    ];
+
+    return xmlResponse(buildSitemapXml(entries));
   } catch (err) {
-    console.error("[sitemap.xml]", err);
-    // Always return valid XML — never a 500 that GSC treats as "could not read"
-    return respond(sitemap([url(`${proto}://${hostname}/`, today, "daily", "1.0")]));
+    console.error("[sitemap.xml] main domain error:", err);
+    const base = (process.env.NEXT_PUBLIC_APP_URL || `${proto}://${hostname}`).replace(/\/$/, "");
+    return errorResponse(
+      buildSitemapXml([buildUrlEntry(`${base}/`, today, "daily", "1.0")]),
+    );
   }
 }
