@@ -14,6 +14,7 @@ Disallow: /super-admin/
 Disallow: /clinic/
 
 Sitemap: ${protocol}://${host}/sitemap.xml
+Sitemap: ${protocol}://${host}/sitemap.txt
 `;
 
   return new Response(robotsTxt, {
