@@ -15,8 +15,6 @@ export const config = {
     "/((?!api/|_next/|_static/|_vercel|[\\w-]+\\.\\w+).*)",
     "/favicon.ico",
     "/sitemap.xml",
-    "/sitemap-index.xml",
-    "/sitemap.txt",
     "/robots.txt",
   ],
 };
@@ -45,12 +43,7 @@ export async function middleware(req: NextRequest) {
 
   // Always let SEO/system paths be handled by their own route handlers.
   // These must never be rewritten to /blog/[clinicSlug]/[path] or they 404.
-  const SYSTEM_PATHS = [
-    "/sitemap.xml",
-    "/sitemap-index.xml",
-    "/sitemap.txt",
-    "/robots.txt",
-  ];
+  const SYSTEM_PATHS = ["/sitemap.xml", "/robots.txt"];
   if (SYSTEM_PATHS.includes(url.pathname)) {
     return NextResponse.next();
   }
