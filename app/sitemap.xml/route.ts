@@ -85,7 +85,7 @@ export async function GET(req: Request): Promise<Response> {
       const bare = hostname.replace(/^www\./, "");
 
       // Try bare domain first, then www-prefixed variant
-      let clinic =
+      const clinic =
         (await convex.query(api.clinics.getByDomain, { domain: bare })) ??
         (await convex.query(api.clinics.getByDomain, { domain: `www.${bare}` }));
 

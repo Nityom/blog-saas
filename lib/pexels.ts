@@ -46,7 +46,7 @@ export async function fetchPexelsImage(
 
     // Pick the first photo whose URL hasn't already been used.
     const photo =
-      data.photos.find((p: any) => {
+      data.photos.find((p: { src: { large: string; original: string } }) => {
         const url = p.src.large || p.src.original;
         return !excludeSet.has(url);
       }) ?? data.photos[0];

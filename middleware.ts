@@ -8,10 +8,16 @@ const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 // Match all routes except for static assets, Next.js internals, and API routes.
 // /favicon.ico is included explicitly so custom-domain clinics get their logo
 // served as the favicon instead of the platform default.
+// SEO system paths (sitemap.xml, robots.txt, etc.) are also included so the
+// middleware can explicitly pass them through without rewriting.
 export const config = {
   matcher: [
     "/((?!api/|_next/|_static/|_vercel|[\\w-]+\\.\\w+).*)",
     "/favicon.ico",
+    "/sitemap.xml",
+    "/sitemap-index.xml",
+    "/sitemap.txt",
+    "/robots.txt",
   ],
 };
 
@@ -34,6 +40,18 @@ export async function middleware(req: NextRequest) {
   const isVercel = hostname.includes("vercel.app") || hostname.includes("vercel.pub");
   
   if (isLocal || isVercel) {
+    return NextResponse.next();
+  }
+
+  // Always let SEO/system paths be handled by their own route handlers.
+  // These must never be rewritten to /blog/[clinicSlug]/[path] or they 404.
+  const SYSTEM_PATHS = [
+    "/sitemap.xml",
+    "/sitemap-index.xml",
+    "/sitemap.txt",
+    "/robots.txt",
+  ];
+  if (SYSTEM_PATHS.includes(url.pathname)) {
     return NextResponse.next();
   }
 
