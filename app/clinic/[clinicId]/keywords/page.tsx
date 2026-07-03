@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Trash2, PauseCircle, PlayCircle, Plus, GripVertical } from "lucide-react";
+import { Trash2, PauseCircle, PlayCircle, Plus, GripVertical, Sparkles } from "lucide-react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import AiSuggestPanel from "./AiSuggestPanel";
 import ClustersPanel from "./ClustersPanel";
@@ -29,6 +29,9 @@ export default function ClinicKeywordsPage() {
   const updateKeyword = useMutation(api.keywords.update);
   const deleteKeyword = useMutation(api.keywords.remove);
   const reorderKeywords = useMutation(api.keywords.reorder);
+  const seedKeywords = useMutation(api.keywords.seedDefaultKeywords);
+
+  const [isSeedingKeywords, setIsSeedingKeywords] = useState(false);
 
   const [term, setTerm] = useState("");
   const [localVariant, setLocalVariant] = useState("");
@@ -110,9 +113,31 @@ export default function ClinicKeywordsPage() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-5">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight text-neutral-900">Keyword Manager</h2>
-        <p className="text-neutral-500">Add, cluster, and let AI surface long-tail keywords the AI generator should target.</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight text-neutral-900">Keyword Manager</h2>
+          <p className="text-neutral-500">Add, cluster, and let AI surface long-tail keywords the AI generator should target.</p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={isSeedingKeywords || !clinic}
+          onClick={async () => {
+            if (!clinic) return;
+            setIsSeedingKeywords(true);
+            try {
+              await seedKeywords({ clinicId: clinicId as Id<"clinics">, city: clinic.city });
+              toast.success("Missing keywords added!");
+            } catch {
+              toast.error("Failed to seed keywords");
+            } finally {
+              setIsSeedingKeywords(false);
+            }
+          }}
+        >
+          <Sparkles className="w-4 h-4 mr-2" />
+          {isSeedingKeywords ? "Adding..." : "Add Missing Keywords"}
+        </Button>
       </div>
 
       <Tabs defaultValue="list" className="space-y-6">

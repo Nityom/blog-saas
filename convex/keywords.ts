@@ -195,40 +195,186 @@ export const reorder = mutation({
 export const seedDefaultKeywords = mutation({
   args: { clinicId: v.id("clinics"), city: v.string() },
   handler: async (ctx, args) => {
-    const defaultKeywords = [
-      { term: "teeth whitening", lowRisk: true },
-      { term: "root canal treatment", lowRisk: false },
-      { term: "dental implants", lowRisk: false },
-      { term: "gum disease treatment", lowRisk: false },
-      { term: "cavity prevention", lowRisk: true },
-      { term: "Invisalign", lowRisk: false },
-      { term: "dental veneers", lowRisk: false },
-      { term: "wisdom tooth removal", lowRisk: false },
-      { term: "dental crowns", lowRisk: false },
-      { term: "teeth sensitivity", lowRisk: false },
-      { term: "children dentistry", lowRisk: true },
-      { term: "dental bridges", lowRisk: false },
-      { term: "tooth extraction", lowRisk: false },
-      { term: "dental bonding", lowRisk: false },
-      { term: "sleep dentistry", lowRisk: false },
-      { term: "bad breath treatment", lowRisk: true },
-      { term: "dental cleaning", lowRisk: true },
-      { term: "tooth abscess", lowRisk: false },
-      { term: "teeth grinding treatment", lowRisk: false },
-      { term: "emergency dental care", lowRisk: false },
+    const now = Date.now();
+    const c = args.clinicId;
+    const city = args.city;
+
+    // Helper to build a keyword record
+    const kw = (
+      term: string,
+      lowRisk: boolean,
+      cluster: string,
+      isPillar: boolean,
+      intent: "informational" | "commercial" | "transactional",
+    ) => ({
+      clinicId: c,
+      term,
+      localVariant: `${term} in ${city}`,
+      lowRisk,
+      cluster,
+      isPillar,
+      source: "seed" as const,
+      intent,
+      timesUsed: 0,
+      performanceScore: 0,
+      paused: false,
+      createdAt: now,
+    });
+
+    // ── 0. Find already-existing terms so we don't insert duplicates ──────
+    const existing = await ctx.db
+      .query("keywords")
+      .withIndex("by_clinic", (q) => q.eq("clinicId", c))
+      .collect();
+    const norm = (s: string) => s.toLowerCase().trim();
+    const seen = new Set(existing.map((k) => norm(k.term)));
+
+    // ── 1. Insert all pillar keywords first and capture their IDs ──────────
+    const pillarIds: Record<string, string> = {};
+
+    const pillars: Array<{ term: string; lowRisk: boolean; cluster: string; intent: "informational" | "commercial" | "transactional" }> = [
+      { term: "root canal treatment", lowRisk: false, cluster: "Root Canal", intent: "transactional" },
+      { term: "dental implants", lowRisk: false, cluster: "Dental Implants", intent: "commercial" },
+      { term: "teeth whitening", lowRisk: true, cluster: "Teeth Whitening", intent: "commercial" },
+      { term: "cosmetic dentistry", lowRisk: true, cluster: "Cosmetic Dentistry", intent: "commercial" },
+      { term: "Invisalign treatment", lowRisk: false, cluster: "Orthodontics", intent: "commercial" },
+      { term: "gum disease treatment", lowRisk: false, cluster: "Gum Disease", intent: "transactional" },
+      { term: "dental crowns", lowRisk: false, cluster: "Crowns & Bridges", intent: "commercial" },
+      { term: "tooth extraction", lowRisk: false, cluster: "Oral Surgery", intent: "transactional" },
+      { term: "children dentistry", lowRisk: true, cluster: "Pediatric Dentistry", intent: "commercial" },
+      { term: "dental checkup and cleaning", lowRisk: true, cluster: "Preventive Dentistry", intent: "transactional" },
+      { term: "emergency dental care", lowRisk: false, cluster: "Dental Emergencies", intent: "transactional" },
+      { term: "oral health tips", lowRisk: true, cluster: "Oral Health & Lifestyle", intent: "informational" },
+      { term: "dentures", lowRisk: true, cluster: "Dentures & Prosthetics", intent: "commercial" },
     ];
 
-    for (const kw of defaultKeywords) {
-      await ctx.db.insert("keywords", {
-        clinicId: args.clinicId,
-        term: kw.term,
-        localVariant: `${kw.term} in ${args.city}`,
-        timesUsed: 0,
-        performanceScore: 0,
-        lowRisk: kw.lowRisk,
-        paused: false,
-        createdAt: Date.now(),
+    for (const p of pillars) {
+      if (seen.has(norm(p.term))) {
+        // Already exists — resolve its ID for supporting keyword linking
+        const existing = await ctx.db
+          .query("keywords")
+          .withIndex("by_clinic", (q) => q.eq("clinicId", c))
+          .collect();
+        const match = existing.find((k) => norm(k.term) === norm(p.term));
+        if (match) pillarIds[p.cluster] = match._id;
+        continue;
+      }
+      const id = await ctx.db.insert("keywords", {
+        ...kw(p.term, p.lowRisk, p.cluster, true, p.intent),
       });
+      seen.add(norm(p.term));
+      pillarIds[p.cluster] = id;
+    }
+
+    // ── 2. Insert supporting keywords referencing their pillar ─────────────
+    type SupportingKw = {
+      term: string;
+      lowRisk: boolean;
+      cluster: string;
+      intent: "informational" | "commercial" | "transactional";
+    };
+
+    const supporting: SupportingKw[] = [
+      // Root Canal
+      { term: "is root canal treatment painful", lowRisk: false, cluster: "Root Canal", intent: "informational" },
+      { term: "root canal vs tooth extraction", lowRisk: false, cluster: "Root Canal", intent: "informational" },
+      { term: "signs you need a root canal", lowRisk: false, cluster: "Root Canal", intent: "informational" },
+      { term: "root canal treatment cost", lowRisk: true, cluster: "Root Canal", intent: "commercial" },
+      { term: "root canal recovery tips", lowRisk: true, cluster: "Root Canal", intent: "informational" },
+
+      // Dental Implants
+      { term: "dental implants cost", lowRisk: true, cluster: "Dental Implants", intent: "commercial" },
+      { term: "dental implants vs dentures", lowRisk: false, cluster: "Dental Implants", intent: "informational" },
+      { term: "all-on-4 dental implants", lowRisk: false, cluster: "Dental Implants", intent: "commercial" },
+      { term: "mini dental implants", lowRisk: false, cluster: "Dental Implants", intent: "commercial" },
+      { term: "dental implant procedure steps", lowRisk: false, cluster: "Dental Implants", intent: "informational" },
+
+      // Teeth Whitening
+      { term: "laser teeth whitening", lowRisk: true, cluster: "Teeth Whitening", intent: "commercial" },
+      { term: "teeth whitening cost", lowRisk: true, cluster: "Teeth Whitening", intent: "commercial" },
+      { term: "teeth whitening at home tips", lowRisk: true, cluster: "Teeth Whitening", intent: "informational" },
+      { term: "zoom teeth whitening", lowRisk: true, cluster: "Teeth Whitening", intent: "commercial" },
+
+      // Cosmetic Dentistry
+      { term: "dental veneers", lowRisk: false, cluster: "Cosmetic Dentistry", intent: "commercial" },
+      { term: "smile makeover", lowRisk: true, cluster: "Cosmetic Dentistry", intent: "commercial" },
+      { term: "dental bonding", lowRisk: false, cluster: "Cosmetic Dentistry", intent: "commercial" },
+      { term: "composite veneers vs porcelain veneers", lowRisk: true, cluster: "Cosmetic Dentistry", intent: "informational" },
+      { term: "teeth reshaping and contouring", lowRisk: true, cluster: "Cosmetic Dentistry", intent: "commercial" },
+
+      // Orthodontics
+      { term: "Invisalign vs braces", lowRisk: false, cluster: "Orthodontics", intent: "informational" },
+      { term: "Invisalign cost", lowRisk: false, cluster: "Orthodontics", intent: "commercial" },
+      { term: "clear aligners for adults", lowRisk: false, cluster: "Orthodontics", intent: "commercial" },
+      { term: "retainers after braces", lowRisk: true, cluster: "Orthodontics", intent: "informational" },
+      { term: "teeth straightening options", lowRisk: false, cluster: "Orthodontics", intent: "informational" },
+
+      // Gum Disease
+      { term: "bleeding gums causes and treatment", lowRisk: true, cluster: "Gum Disease", intent: "informational" },
+      { term: "gingivitis treatment at home", lowRisk: false, cluster: "Gum Disease", intent: "informational" },
+      { term: "deep cleaning scaling and root planing", lowRisk: false, cluster: "Gum Disease", intent: "commercial" },
+      { term: "gum recession treatment", lowRisk: false, cluster: "Gum Disease", intent: "commercial" },
+      { term: "periodontitis stages and treatment", lowRisk: false, cluster: "Gum Disease", intent: "informational" },
+
+      // Crowns & Bridges
+      { term: "zirconia dental crowns", lowRisk: false, cluster: "Crowns & Bridges", intent: "commercial" },
+      { term: "dental crown procedure", lowRisk: false, cluster: "Crowns & Bridges", intent: "informational" },
+      { term: "dental bridges", lowRisk: false, cluster: "Crowns & Bridges", intent: "commercial" },
+      { term: "dental crown cost", lowRisk: true, cluster: "Crowns & Bridges", intent: "commercial" },
+      { term: "temporary vs permanent dental crown", lowRisk: true, cluster: "Crowns & Bridges", intent: "informational" },
+
+      // Oral Surgery
+      { term: "wisdom tooth removal", lowRisk: false, cluster: "Oral Surgery", intent: "transactional" },
+      { term: "wisdom tooth pain relief", lowRisk: false, cluster: "Oral Surgery", intent: "informational" },
+      { term: "tooth extraction recovery tips", lowRisk: true, cluster: "Oral Surgery", intent: "informational" },
+      { term: "dry socket after tooth extraction", lowRisk: false, cluster: "Oral Surgery", intent: "informational" },
+      { term: "bone grafting for dental implants", lowRisk: false, cluster: "Oral Surgery", intent: "commercial" },
+
+      // Pediatric Dentistry
+      { term: "baby teeth care tips", lowRisk: true, cluster: "Pediatric Dentistry", intent: "informational" },
+      { term: "first dental visit for child", lowRisk: true, cluster: "Pediatric Dentistry", intent: "informational" },
+      { term: "dental problems in children", lowRisk: false, cluster: "Pediatric Dentistry", intent: "informational" },
+      { term: "pit and fissure sealants for children", lowRisk: true, cluster: "Pediatric Dentistry", intent: "commercial" },
+      { term: "braces for children", lowRisk: false, cluster: "Pediatric Dentistry", intent: "commercial" },
+
+      // Preventive Dentistry
+      { term: "dental scaling and polishing", lowRisk: true, cluster: "Preventive Dentistry", intent: "commercial" },
+      { term: "fluoride treatment for adults", lowRisk: true, cluster: "Preventive Dentistry", intent: "commercial" },
+      { term: "cavity prevention tips", lowRisk: true, cluster: "Preventive Dentistry", intent: "informational" },
+      { term: "how often should you visit the dentist", lowRisk: true, cluster: "Preventive Dentistry", intent: "informational" },
+      { term: "dental X-rays safety and importance", lowRisk: true, cluster: "Preventive Dentistry", intent: "informational" },
+
+      // Dental Emergencies
+      { term: "toothache causes and relief", lowRisk: false, cluster: "Dental Emergencies", intent: "informational" },
+      { term: "chipped or cracked tooth repair", lowRisk: false, cluster: "Dental Emergencies", intent: "transactional" },
+      { term: "dental abscess symptoms and treatment", lowRisk: false, cluster: "Dental Emergencies", intent: "informational" },
+      { term: "knocked out tooth first aid", lowRisk: false, cluster: "Dental Emergencies", intent: "informational" },
+      { term: "lost dental crown what to do", lowRisk: false, cluster: "Dental Emergencies", intent: "informational" },
+
+      // Oral Health & Lifestyle
+      { term: "bad breath causes and treatment", lowRisk: true, cluster: "Oral Health & Lifestyle", intent: "informational" },
+      { term: "teeth grinding treatment", lowRisk: false, cluster: "Oral Health & Lifestyle", intent: "transactional" },
+      { term: "teeth sensitivity treatment", lowRisk: false, cluster: "Oral Health & Lifestyle", intent: "transactional" },
+      { term: "dental care during pregnancy", lowRisk: true, cluster: "Oral Health & Lifestyle", intent: "informational" },
+      { term: "foods that damage teeth", lowRisk: true, cluster: "Oral Health & Lifestyle", intent: "informational" },
+      { term: "diabetes and dental health", lowRisk: true, cluster: "Oral Health & Lifestyle", intent: "informational" },
+      { term: "dry mouth causes and remedies", lowRisk: true, cluster: "Oral Health & Lifestyle", intent: "informational" },
+
+      // Dentures & Prosthetics
+      { term: "full mouth dentures cost", lowRisk: true, cluster: "Dentures & Prosthetics", intent: "commercial" },
+      { term: "partial dentures", lowRisk: true, cluster: "Dentures & Prosthetics", intent: "commercial" },
+      { term: "flexible dentures", lowRisk: true, cluster: "Dentures & Prosthetics", intent: "commercial" },
+      { term: "denture care tips", lowRisk: true, cluster: "Dentures & Prosthetics", intent: "informational" },
+      { term: "dental implant supported dentures", lowRisk: false, cluster: "Dentures & Prosthetics", intent: "commercial" },
+    ];
+
+    for (const s of supporting) {
+      if (seen.has(norm(s.term))) continue;
+      await ctx.db.insert("keywords", {
+        ...kw(s.term, s.lowRisk, s.cluster, false, s.intent),
+        pillarKeywordId: pillarIds[s.cluster] as any,
+      });
+      seen.add(norm(s.term));
     }
   },
 });
@@ -239,35 +385,79 @@ export const insertRefinedKeywords = mutation({
     const clinic = await ctx.db.get(args.clinicId);
     if (!clinic) throw new Error("Clinic not found");
 
-    const newKeywords = [
-      "Cost of root canal treatment",
-      "Symptoms that indicate you need a root canal",
-      "Is root canal treatment painful?",
-      "Is a root canal safe and permanent?",
-      "Why is a root canal done?",
-      "Zirconia vs porcelain dental crowns",
-      "Types of dental crowns and their cost",
-      "Dental crowns for front teeth",
-      "Emax dental crowns cost and benefits",
-      "Do you need a crown after a root canal?",
-      "Teeth sensitivity to cold",
-      "Teeth sensitivity pain relief at home",
-      "Teeth sensitivity during pregnancy",
-      "Causes of sudden teeth sensitivity",
-      "Best toothpaste for teeth sensitivity"
+    // Advanced / long-tail topics beyond the seed set — added in a second pass
+    // after the clinic's first batch of posts is live.
+    const advanced: Array<{ term: string; lowRisk: boolean; cluster: string; intent: "informational" | "commercial" | "transactional" }> = [
+      // Sleep dentistry & anxiety
+      { term: "dental anxiety treatment", lowRisk: false, cluster: "Sedation Dentistry", intent: "informational" },
+      { term: "sedation dentistry options", lowRisk: false, cluster: "Sedation Dentistry", intent: "commercial" },
+      { term: "nitrous oxide sedation for dentistry", lowRisk: false, cluster: "Sedation Dentistry", intent: "informational" },
+
+      // TMJ & Jaw
+      { term: "TMJ disorder symptoms and treatment", lowRisk: false, cluster: "TMJ & Jaw", intent: "informational" },
+      { term: "jaw pain causes and relief", lowRisk: true, cluster: "TMJ & Jaw", intent: "informational" },
+      { term: "night guard for teeth grinding", lowRisk: true, cluster: "TMJ & Jaw", intent: "commercial" },
+
+      // Smile design & aesthetics
+      { term: "digital smile design", lowRisk: true, cluster: "Cosmetic Dentistry", intent: "commercial" },
+      { term: "gummy smile treatment", lowRisk: false, cluster: "Cosmetic Dentistry", intent: "commercial" },
+      { term: "tooth gap closure options", lowRisk: true, cluster: "Cosmetic Dentistry", intent: "commercial" },
+
+      // Endodontics advanced
+      { term: "re-root canal treatment", lowRisk: false, cluster: "Root Canal", intent: "informational" },
+      { term: "root canal vs dental implant which is better", lowRisk: false, cluster: "Root Canal", intent: "informational" },
+
+      // Implant advanced
+      { term: "same day dental implants", lowRisk: false, cluster: "Dental Implants", intent: "commercial" },
+      { term: "full mouth rehabilitation cost", lowRisk: false, cluster: "Dental Implants", intent: "commercial" },
+      { term: "implant failure signs", lowRisk: false, cluster: "Dental Implants", intent: "informational" },
+
+      // Seniors & special populations
+      { term: "dental care for seniors", lowRisk: true, cluster: "Oral Health & Lifestyle", intent: "informational" },
+      { term: "dental care for diabetic patients", lowRisk: true, cluster: "Oral Health & Lifestyle", intent: "informational" },
+      { term: "dental care after chemotherapy", lowRisk: false, cluster: "Oral Health & Lifestyle", intent: "informational" },
+
+      // Preventive advanced
+      { term: "laser dentistry benefits", lowRisk: true, cluster: "Preventive Dentistry", intent: "informational" },
+      { term: "digital X-rays vs traditional", lowRisk: true, cluster: "Preventive Dentistry", intent: "informational" },
+      { term: "oil pulling dental health benefits", lowRisk: true, cluster: "Preventive Dentistry", intent: "informational" },
+
+      // General patient education
+      { term: "how to choose a good dentist", lowRisk: true, cluster: "Oral Health & Lifestyle", intent: "informational" },
+      { term: "dental insurance in India guide", lowRisk: true, cluster: "Oral Health & Lifestyle", intent: "informational" },
+      { term: "why are regular dental checkups important", lowRisk: true, cluster: "Preventive Dentistry", intent: "informational" },
+      { term: "electric toothbrush vs manual", lowRisk: true, cluster: "Oral Health & Lifestyle", intent: "informational" },
+      { term: "best foods for healthy teeth and gums", lowRisk: true, cluster: "Oral Health & Lifestyle", intent: "informational" },
     ];
 
+    const now = Date.now();
     let inserted = 0;
-    for (const term of newKeywords) {
+
+    // Resolve existing pillar IDs for cluster linking
+    const existingKeywords = await ctx.db
+      .query("keywords")
+      .withIndex("by_clinic", (q) => q.eq("clinicId", args.clinicId))
+      .collect();
+    const pillarByCluster = new Map<string, string>();
+    for (const k of existingKeywords) {
+      if (k.isPillar && k.cluster) pillarByCluster.set(k.cluster, k._id);
+    }
+
+    for (const item of advanced) {
       await ctx.db.insert("keywords", {
-        clinicId: clinic._id,
-        term: term,
-        localVariant: `${term} in ${clinic.city}`,
+        clinicId: args.clinicId,
+        term: item.term,
+        localVariant: `${item.term} in ${clinic.city}`,
+        lowRisk: item.lowRisk,
+        cluster: item.cluster,
+        isPillar: false,
+        source: "seed",
+        intent: item.intent as any,
+        pillarKeywordId: pillarByCluster.get(item.cluster) as any,
         timesUsed: 0,
         performanceScore: 0,
-        lowRisk: true,
         paused: false,
-        createdAt: Date.now(),
+        createdAt: now,
       });
       inserted++;
     }
