@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import Link from "next/link";
-import { ArrowLeft, Save, Globe, Trash2, AlertTriangle, CheckCircle2, Upload, RotateCcw } from "lucide-react";
+import { ArrowLeft, Save, Globe, Trash2, AlertTriangle, CheckCircle2, Upload, RotateCcw, RefreshCw } from "lucide-react";
 import dynamic from 'next/dynamic';
 import { parseJsonFromText } from "@/lib/json";
 import ContentScoreCard from "@/components/ContentScoreCard";
@@ -36,6 +36,7 @@ export default function EditPostPage() {
   const postToFacebook = useAction(api.social.postToFacebook);
   const postToInstagram = useAction(api.social.postToInstagram);
   const generateUploadUrl = useMutation(api.posts.generateUploadUrl);
+  const refreshImageAction = useAction(api.posts.refreshImage);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -51,6 +52,7 @@ export default function EditPostPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isRefreshingImage, setIsRefreshingImage] = useState(false);
   const [savedFormData, setSavedFormData] = useState(formData);
   const [isInitialized, setIsInitialized] = useState(false);
 
@@ -97,6 +99,24 @@ export default function EditPostPage() {
   } catch {
     socialContentData = null;
   }
+
+  const handleRefreshImage = async () => {
+    setIsRefreshingImage(true);
+    try {
+      const result = await refreshImageAction({ postId: postId as Id<"posts"> });
+      setFormData((prev) => ({
+        ...prev,
+        imageUrl: result.imageUrl,
+        imageCredit: result.imageCredit,
+        imageCreditUrl: result.imageCreditUrl,
+      }));
+      toast.success("Image refreshed from Pexels!");
+    } catch {
+      toast.error("Failed to refresh image");
+    } finally {
+      setIsRefreshingImage(false);
+    }
+  };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -410,7 +430,15 @@ export default function EditPostPage() {
           <Card className="bg-white border-neutral-200">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle>Featured Image</CardTitle>
-              <div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleRefreshImage}
+                  disabled={isRefreshingImage}
+                  className="inline-flex items-center justify-center rounded-[min(var(--radius-md),12px)] border border-border bg-background hover:bg-muted hover:text-foreground h-7 gap-1 px-2.5 text-[0.8rem] font-medium transition-all disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${isRefreshingImage ? 'animate-spin' : ''}`} />
+                  {isRefreshingImage ? "Refreshing..." : "Refresh from Pexels"}
+                </button>
                 <input
                   type="file"
                   id="imageUpload"

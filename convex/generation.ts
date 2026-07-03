@@ -5,7 +5,7 @@ import { parseJsonFromText } from "../lib/json";
 import { fetchPexelsImage } from "../lib/pexels";
 import { generateSlug, generateSchemaMarkup, addInternalLinks, toHashtag } from "../lib/seo";
 import { selectNextKeyword } from "../lib/keywords";
-import { markdownToHtml, getWordCount, truncateToSentence } from "../lib/markdown";
+import { markdownToHtml, getWordCount, truncateToSentence, scoreContent } from "../lib/markdown";
 import { pingIndexNow, buildPostUrls } from "../lib/indexing";
 import { pickRotation, buildClinicFactsBlock } from "../lib/contentVariation";
 import { internal, api } from "./_generated/api";
@@ -187,7 +187,7 @@ export const logFailure = internalMutation({
 });
 
 export const generatePost = action({
-  args: { clinicId: v.id("clinics") },
+  args: { clinicId: v.id("clinics"), isRetry: v.optional(v.boolean()) },
   handler: async (ctx, args) => {
     const clinic = await ctx.runQuery(internal.generationHelpers.getClinic, { clinicId: args.clinicId });
     if (!clinic) return;
@@ -304,7 +304,82 @@ Then write the post following these rules:
       const metaTitle = metaTitleMatch?.[1]?.trim() || title;
       const metaDesc = metaDescMatch ? metaDescMatch[1] : `Learn about ${keyword.term} at ${clinic.name} in ${clinic.city}.`;
       const excerpt = excerptMatch ? excerptMatch[1] : truncateToSentence(content, 160);
-      const readingTime = Math.ceil(getWordCount(content) / 200);
+
+      // ── SEO Auto-Repair ──────────────────────────────────────────────────────
+      // 1. Programmatic meta fixes
+      let repairedMetaTitle = metaTitle;
+      if (repairedMetaTitle.length > 60) {
+        const cut = repairedMetaTitle.slice(0, 59);
+        const ws = cut.lastIndexOf(' ');
+        repairedMetaTitle = (ws > 30 ? cut.slice(0, ws) : cut) + '\u2026';
+      }
+
+      let repairedMetaDesc = metaDesc;
+      if (repairedMetaDesc.length > 160) {
+        const cut = repairedMetaDesc.slice(0, 157);
+        const ws = cut.lastIndexOf(' ');
+        repairedMetaDesc = (ws > 60 ? cut.slice(0, ws) : cut) + '...';
+      } else if (repairedMetaDesc.length < 80) {
+        const ext = ` Visit ${clinic.name} in ${clinic.city} for expert ${keyword.term}.`;
+        repairedMetaDesc = (repairedMetaDesc + ext).slice(0, 160);
+      }
+
+      // 2. Keyword in first 100 words
+      let repairedContent = content;
+      const draftScore = scoreContent({ content, title, metaTitle: repairedMetaTitle, metaDesc: repairedMetaDesc, keyword: keyword.term });
+
+      if (!draftScore.details.keywordInFirst100Words) {
+        const kwSentence = `${keyword.localVariant || keyword.term} is one of the most common dental treatments provided at ${clinic.name} in ${clinic.city}.\n\n`;
+        repairedContent = repairedContent.replace(/^(#\s+.+\n+)/m, `$1${kwSentence}`);
+      }
+
+      // 3. FAQ block — append if fewer than 3 H3 headings in the draft
+      if (draftScore.details.faqCount < 3) {
+        try {
+          // Remove any thin existing FAQ section so we don't get duplicate headings
+          repairedContent = repairedContent.replace(
+            /\n##\s+(?:frequently asked questions|faqs?|common questions)[^\n]*[\s\S]*?(?=\n##\s|$)/gi,
+            ''
+          ).trimEnd();
+
+          const faqSystem = `You are a dental SEO content writer. Return ONLY markdown. No preamble, no backticks.`;
+          const faqPrompt = `Write a FAQ section for a dental blog post about "${keyword.localVariant || keyword.term}" for patients at ${clinic.name} in ${clinic.city}.
+
+Return EXACTLY this structure (4 questions):
+
+## Frequently Asked Questions
+
+### Question one?
+
+Answer in 2-3 plain-language sentences.
+
+### Question two?
+
+Answer in 2-3 plain-language sentences.
+
+### Question three?
+
+Answer in 2-3 plain-language sentences.
+
+### Question four?
+
+Answer in 2-3 plain-language sentences.
+
+Focus on: cost in INR, recovery time, who needs it, and what to expect during the procedure. Do NOT repeat content already implied by the article title.`;
+
+          const faqBlock = await generateText(faqSystem, faqPrompt, 600, 1);
+          const cleanFaq = faqBlock
+            .replace(/^```(?:markdown)?\n?/i, '')
+            .replace(/\n?```\s*$/i, '')
+            .trim();
+          repairedContent = repairedContent + '\n\n' + cleanFaq;
+        } catch (faqErr) {
+          console.error('FAQ repair failed:', faqErr);
+        }
+      }
+      // ── End SEO Auto-Repair ──────────────────────────────────────────────────
+
+      const readingTime = Math.ceil(getWordCount(repairedContent) / 200);
       let socialContentJson = "{}";
 
       let passesCompleted = 1;
@@ -313,7 +388,13 @@ Then write the post following these rules:
 
         // Parallel tasks: Pexels, Pass 2, and Pass 3 social content.
         const usedImageUrls = await ctx.runQuery(internal.generationHelpers.getUsedImageUrls, { clinicId: args.clinicId });
-        const tasks: Promise<any>[] = [fetchPexelsImage(keyword.term, usedImageUrls)];
+        // Try queries from most specific to least so Pexels returns a relevant image.
+        const imageQueries = [
+          `${keyword.term} dental procedure`,
+          keyword.term,
+          "dental treatment dentist clinic",
+        ];
+        const tasks: Promise<any>[] = [fetchPexelsImage(imageQueries, usedImageUrls)];
       
       if (!keyword.lowRisk) {
         tasks.push((async () => {
@@ -423,9 +504,9 @@ Rules:
         postData: {
           title,
           excerpt,
-          content,
-          metaTitle,
-          metaDesc,
+          content: repairedContent,
+          metaTitle: repairedMetaTitle,
+          metaDesc: repairedMetaDesc,
           readingTime,
           imageUrl: pexelsImage.imageUrl,
           imageCredit: pexelsImage.imageCredit,
@@ -440,6 +521,13 @@ Rules:
           passesCompleted,
         }
       });
+
+      // If flagged and this is not already a retry, kick off a fresh post
+      // on a different keyword so the clinic still gets its scheduled content.
+      if (finalStatus === "flagged" && !args.isRetry) {
+        console.log(`Post flagged for clinic ${args.clinicId} — scheduling retry with next keyword.`);
+        await ctx.runAction(api.generation.generatePost, { clinicId: args.clinicId, isRetry: true });
+      }
 
       // Best-effort: tell IndexNow (Bing/Yandex/etc.) the new URL exists so it
       // gets crawled in minutes instead of days. Google relies on the sitemap

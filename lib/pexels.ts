@@ -10,8 +10,36 @@ const FALLBACK_IMAGE: PexelsImage = {
   imageCreditUrl: "https://unsplash.com",
 };
 
-export async function fetchPexelsImage(
+async function searchPexels(
   query: string,
+  perPage: number,
+  apiKey: string
+): Promise<{ src: { large: string; original: string }; photographer: string; photographer_url: string }[]> {
+  const res = await fetch(
+    `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=${perPage}&orientation=landscape`,
+    {
+      headers: {
+        Authorization: apiKey,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    console.warn(`Pexels API error for query "${query}": ${res.statusText}`);
+    return [];
+  }
+
+  const data = await res.json();
+  return data.photos ?? [];
+}
+
+/**
+ * Fetches a relevant image from Pexels.
+ * Accepts a single query string or an ordered list of queries to try in
+ * sequence — the first query that returns a non-excluded photo wins.
+ */
+export async function fetchPexelsImage(
+  queries: string | string[],
   excludeUrls: string[] = []
 ): Promise<PexelsImage> {
   const apiKey = process.env.PEXELS_API_KEY;
@@ -21,41 +49,29 @@ export async function fetchPexelsImage(
   }
 
   const excludeSet = new Set(excludeUrls);
+  const queryList = Array.isArray(queries) ? queries : [queries];
+  const perPage = Math.min(excludeSet.size + 15, 80);
 
   try {
-    // Fetch enough results so we can skip already-used images.
-    const perPage = Math.min(excludeSet.size + 15, 80);
-    const res = await fetch(
-      `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=${perPage}`,
-      {
-        headers: {
-          Authorization: apiKey,
-        },
-      }
-    );
+    for (const query of queryList) {
+      const photos = await searchPexels(query, perPage, apiKey);
+      if (photos.length === 0) continue;
 
-    if (!res.ok) {
-      console.warn(`Pexels API error: ${res.statusText}, using fallback.`);
-      return FALLBACK_IMAGE;
+      // Prefer a photo not already used by this clinic.
+      const photo =
+        photos.find((p) => {
+          const url = p.src.large || p.src.original;
+          return !excludeSet.has(url);
+        }) ?? photos[0];
+
+      return {
+        imageUrl: photo.src.large || photo.src.original,
+        imageCredit: photo.photographer,
+        imageCreditUrl: photo.photographer_url,
+      };
     }
 
-    const data = await res.json();
-    if (!data.photos || data.photos.length === 0) {
-      return FALLBACK_IMAGE;
-    }
-
-    // Pick the first photo whose URL hasn't already been used.
-    const photo =
-      data.photos.find((p: { src: { large: string; original: string } }) => {
-        const url = p.src.large || p.src.original;
-        return !excludeSet.has(url);
-      }) ?? data.photos[0];
-
-    return {
-      imageUrl: photo.src.large || photo.src.original,
-      imageCredit: photo.photographer,
-      imageCreditUrl: photo.photographer_url,
-    };
+    return FALLBACK_IMAGE;
   } catch (error) {
     console.error("Failed to fetch Pexels image:", error);
     return FALLBACK_IMAGE;
